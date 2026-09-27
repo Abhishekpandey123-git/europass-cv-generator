@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Europass CV editor</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 26'%3E%3Crect width='20' height='26' rx='2' fill='%23fff' stroke='%23d5dbe2'/%3E%3Crect width='20' height='6' rx='2' fill='%230c56a5'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="/static/editor.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark" aria-hidden="true"></span>
+    <span class="brand-name">Europass CV editor</span>
+    <span class="save-state" id="saveState">Saved on this computer</span>
+  </div>
+
+  <div class="toolbar" role="toolbar" aria-label="Edit">
+    <button class="icon-btn" id="undoBtn" title="Undo (Ctrl+Z)" aria-label="Undo">
+      <svg viewBox="0 0 20 20"><path d="M8 5 3 9.5 8 14M3.5 9.5H12a5 5 0 0 1 0 10h-2" /></svg>
+    </button>
+    <button class="icon-btn" id="redoBtn" title="Redo (Ctrl+Y)" aria-label="Redo">
+      <svg viewBox="0 0 20 20"><path d="m12 5 5 4.5-5 4.5m4.5-4.5H8a5 5 0 0 0 0 10h2" /></svg>
+    </button>
+    <span class="divider"></span>
+    <button class="icon-btn" id="zoomOut" aria-label="Zoom out">−</button>
+    <button class="zoom-value" id="zoomFit" title="Fit to screen">100%</button>
+    <button class="icon-btn" id="zoomIn" aria-label="Zoom in">+</button>
+  </div>
+
+  <div class="actions">
+    <div class="menu-wrap">
+      <button class="btn" id="fileBtn" aria-haspopup="true" aria-expanded="false">File</button>
+      <div class="menu" id="fileMenu" hidden>
+        <button data-action="open">Open file… <small>JSON, Europass PDF or XML</small></button>
+        <button data-action="sample">Load sample CV</button>
+        <button data-action="blank">Start a blank CV</button>
+      </div>
+    </div>
+    <button class="btn" id="previewBtn">Preview PDF</button>
+    <div class="menu-wrap">
+      <button class="btn btn-primary" id="downloadBtn" aria-haspopup="true" aria-expanded="false">Download</button>
+      <div class="menu menu-right" id="downloadMenu" hidden>
+        <button data-fmt="pdf">PDF <small>Europass format, can be re-imported into Europass</small></button>
+        <button data-fmt="docx">Word document <small>.docx, for further editing</small></button>
+        <button data-fmt="png">Image <small>PNG, all pages</small></button>
+        <button data-fmt="html">Web page <small>single HTML file</small></button>
+        <button data-fmt="xml">Europass XML <small>data only</small></button>
+        <button data-fmt="json">Backup <small>JSON, to open here again later</small></button>
+      </div>
+    </div>
+    <input type="file" id="fileInput" accept=".json,.pdf,.xml" hidden>
+  </div>
+</header>
+
+<main class="workspace">
+  <aside class="panel panel-left" aria-label="Content and design">
+    <div class="tabs" role="tablist">
+      <button role="tab" class="tab is-active" data-tab="content" aria-selected="true">Content</button>
+      <button role="tab" class="tab" data-tab="design" aria-selected="false">Design</button>
+    </div>
+
+    <section class="tab-panel" id="tab-content">
+      <button class="row-item personal-row" id="personalRow">
+        <span class="row-title">Personal details</span>
+      </button>
+      <p class="hint">Drag sections to change their order.</p>
+      <ol class="section-list" id="sectionList"></ol>
+      <button class="btn btn-ghost full" id="addCustom">Add a custom section</button>
+    </section>
+
+    <section class="tab-panel" id="tab-design" hidden>
+      <label class="field">
+        <span>Font</span>
+        <select id="dFont"></select>
+      </label>
+      <div class="field">
+        <span>Accent colour</span>
+        <div class="swatches" id="dSwatches"></div>
+      </div>
+      <label class="field">
+        <span>Text colour</span>
+        <input type="color" id="dText">
+      </label>
+      <label class="field">
+        <span>Text size <output id="dScaleOut"></output></span>
+        <input type="range" id="dScale" min="0.8" max="1.25" step="0.05">
+      </label>
+      <label class="field">
+        <span>Side margins <output id="dMarginOut"></output></span>
+        <input type="range" id="dMargin" min="5" max="25" step="1">
+      </label>
+      <div class="field">
+        <span>Photo shape</span>
+        <div class="segmented" id="dPhoto">
+          <button data-v="square">Square</button>
+          <button data-v="rounded">Rounded</button>
+          <button data-v="circle">Circle</button>
+        </div>
+      </div>
+      <label class="check">
+        <input type="checkbox" id="dPages"> Show page numbers
+      </label>
+      <button class="btn btn-ghost full" id="dReset">Reset to the Europass look</button>
+    </section>
+  </aside>
+
+  <section class="canvas" id="canvas" aria-label="CV page">
+    <div class="page-wrap" id="pageWrap">
+      <iframe id="page" title="CV page"></iframe>
+    </div>
+    <p class="canvas-note">Page breaks may differ slightly here. Use Preview PDF to see the final pages.</p>
+  </section>
+
+  <aside class="panel panel-right" id="inspector" aria-label="Selected item"></aside>
+</main>
+
+<div class="drop-overlay" id="dropOverlay" hidden><p>Drop a JSON, Europass PDF or XML file to open it</p></div>
+
+<dialog class="preview" id="previewDialog">
+  <div class="preview-bar">
+    <strong>PDF preview</strong>
+    <button class="btn" id="previewClose">Close</button>
+  </div>
+  <iframe id="previewFrame" title="PDF preview"></iframe>
+</dialog>
+
+<div class="toasts" id="toasts" aria-live="polite"></div>
+
+<script src="/static/editor.js"></script>
+</body>
+</html>

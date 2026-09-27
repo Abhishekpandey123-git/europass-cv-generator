@@ -1,0 +1,210 @@
+{#- Europass-style CV template.
+    In editor mode (editable=True) elements carry data-path / data-select
+    attributes so the web editor can edit text in place and select entries. -#}
+{%- macro path(p, multiline=false) -%}
+  {%- if editable %} data-path="{{ p }}"{% if multiline %} data-multiline="1"{% endif %}{% endif -%}
+{%- endmacro -%}
+{%- macro sel(s) -%}{%- if editable %} data-select="{{ s }}"{% endif -%}{%- endmacro -%}
+{%- macro empty_hint(text) -%}
+  {%- if editable %}<p class="editor-empty">{{ text }}</p>{% endif -%}
+{%- endmacro -%}
+{%- macro location(prefix, item) -%}
+  {%- set loc = [] -%}
+  {%- if item.city %}{% set _ = loc.append(('City', item.city, prefix ~ '.city')) %}{% endif -%}
+  {%- if item.country %}{% set _ = loc.append(('Country', item.country, prefix ~ '.country')) %}{% endif -%}
+  {%- if loc -%}
+  <p class="kv">{% for l, v, pth in loc %}<span class="label-semi">{{ l }}:</span> <span{{ path(pth) }}>{{ v }}</span>{% if not loop.last %}<span class="sep">|</span>{% endif %}{% endfor %}</p>
+  {%- endif -%}
+{%- endmacro -%}
+{%- macro dates(item) -%}
+  <div class="entry-date">[ {{ item.start | fmt_date }} – {{ item.end | fmt_date if item.end else 'Current' }} ]</div>
+{%- endmacro -%}
+<!DOCTYPE html>
+<html lang="{{ cv.language or 'en' }}">
+<head>
+  <meta charset="utf-8">
+  <title>{{ p.first_name }} {{ p.last_name }} - CV</title>
+  <style>{{ css | safe }}</style>
+  <style>{{ design_css | safe }}</style>
+  {%- if editable %}
+  <style>
+    @media screen {
+      html { background: transparent; }
+      body { width: 210mm; min-height: 297mm; padding: 10mm var(--page-margin) 12mm; background: #fff; }
+    }
+    [data-path] { outline: none; border-radius: 1px; cursor: text; }
+    [data-path]:hover { box-shadow: 0 0 0 1px rgba(214, 139, 29, .55); }
+    [data-path]:focus { box-shadow: 0 0 0 2px #d68b1d; background: rgba(214, 139, 29, .07); }
+    [data-path]:empty { display: inline-block; min-width: 4em; min-height: 1.2em; background: rgba(214, 139, 29, .10); }
+    [data-select] { cursor: pointer; }
+    .is-selected { box-shadow: 0 0 0 2px #d68b1d, 0 0 0 5px rgba(214, 139, 29, .18); border-radius: 2px; }
+    .editor-empty { color: #9aa0a6; font-style: italic; margin: 0; }
+  </style>
+  {%- endif %}
+</head>
+<body>
+
+{#- ======================= HEADER ======================= #}
+<div class="header"{{ sel('personal') }}>
+  {% if photo_src %}<img class="photo" src="{{ photo_src }}" alt="">{% endif %}
+  <div class="header-main">
+    <h1 class="name"><span{{ path('personal.first_name') }}>{{ p.first_name }}</span> <span{{ path('personal.last_name') }}>{{ p.last_name }}</span></h1>
+
+    {%- set line1 = [] %}
+    {%- if p.date_of_birth %}{% set _ = line1.append(('Date of birth', p.date_of_birth | fmt_date, None)) %}{% endif %}
+    {%- if p.nationalities %}{% set _ = line1.append(('Nationality', p.nationalities | map(attribute='name') | join(', '), None)) %}{% endif %}
+    {%- if p.gender %}{% set _ = line1.append(('Gender', p.gender, None)) %}{% endif %}
+    {%- if line1 %}
+    <p class="contact-line">{% for label, value, pth in line1 %}<span class="label">{{ label }}:</span> {{ value }}{% if not loop.last %}<span class="sep">|</span>{% endif %}{% endfor %}</p>
+    {%- endif %}
+
+    {%- set line2 = [] %}
+    {%- if p.phone and p.phone.number %}{% set _ = line2.append('phone') %}{% endif %}
+    {%- if p.email %}{% set _ = line2.append('email') %}{% endif %}
+    {%- if p.website %}{% set _ = line2.append('website') %}{% endif %}
+    {%- if line2 %}
+    <p class="contact-line">
+      {%- for item in line2 -%}
+        {%- if item == 'phone' -%}
+          <span class="label">Phone number:</span> {% if p.phone.country_dialing %}(+{{ p.phone.country_dialing }}) {% endif %}<span{{ path('personal.phone.number') }}>{{ p.phone.number }}</span>{% if p.phone.type %} ({{ p.phone.type }}){% endif %}
+        {%- elif item == 'email' -%}
+          <span class="label">Email address:</span> <span{{ path('personal.email') }}>{{ p.email }}</span>
+        {%- else -%}
+          <span class="label">Website:</span> <span{{ path('personal.website') }}>{{ p.website }}</span>
+        {%- endif -%}
+        {%- if not loop.last %}<span class="sep">|</span>{% endif -%}
+      {%- endfor -%}
+    </p>
+    {%- endif %}
+
+    {%- if p.address and (p.address.street or p.address.city or p.address.country) %}
+    <p class="contact-line">
+      <span class="label">Address:</span>
+      {{ [p.address.street, ((p.address.postal_code or '') ~ ' ' ~ (p.address.city or '')) | trim, p.address.country] | select | join(', ') }}{% if p.address.type %} ({{ p.address.type }}){% endif %}
+    </p>
+    {%- endif %}
+  </div>
+  {% if logo_src %}<img class="logo" src="{{ logo_src }}" alt="">{% endif %}
+</div>
+
+{#- ======================= SECTIONS (in chosen order) ======================= #}
+{%- for key in sections %}
+
+{%- if key == 'about' and (cv.about or editable) %}
+<div class="section"{{ sel('section:about') }}>
+  <h2 class="section-title">{{ labels.about }}</h2>
+  {% if cv.about %}<p class="about"{{ path('about', true) }}>{{ cv.about }}</p>{% else %}{{ empty_hint('Add a short summary in the About me panel.') }}{% endif %}
+</div>
+
+{%- elif key == 'work_experience' and (cv.work_experience or editable) %}
+<div class="section">
+  <h2 class="section-title"{{ sel('section:work_experience') }}>{{ labels.work_experience }}</h2>
+  {% for job in cv.work_experience or [] %}{% set base = 'work_experience.' ~ loop.index0 %}
+  <div class="entry"{{ sel(base) }}>
+    {{ dates(job) }}
+    <h3 class="entry-title"{{ path(base ~ '.title') }}>{{ job.title }}</h3>
+    {% if job.employer %}<div class="entry-org"{{ path(base ~ '.employer') }}>{{ job.employer }}</div>{% endif %}
+    {{ location(base, job) }}
+    <div class="entry-body">
+      {% if job.description is string and job.description %}
+        <p{{ path(base ~ '.description', true) }}>{{ job.description }}</p>
+      {% elif job.description %}
+        <ul>{% for item in job.description %}<li{{ path(base ~ '.description.' ~ loop.index0) }}>{{ item }}</li>{% endfor %}</ul>
+      {% endif %}
+    </div>
+  </div>
+  {% else %}{{ empty_hint('No work experience yet. Use “Add” in the Content panel.') }}
+  {% endfor %}
+</div>
+
+{%- elif key == 'education' and (cv.education or editable) %}
+<div class="section">
+  <h2 class="section-title"{{ sel('section:education') }}>{{ labels.education }}</h2>
+  {% for ed in cv.education or [] %}{% set base = 'education.' ~ loop.index0 %}
+  <div class="entry"{{ sel(base) }}>
+    {{ dates(ed) }}
+    <h3 class="entry-title"{{ path(base ~ '.title') }}>{{ ed.title }}</h3>
+    {% if ed.organisation %}<div class="entry-org"{{ path(base ~ '.organisation') }}>{{ ed.organisation }}</div>{% endif %}
+    {{ location(base, ed) }}
+    <div class="entry-body">
+      {% if ed.field %}<p class="kv"><span class="label">Field(s) of study:</span> <span{{ path(base ~ '.field') }}>{{ ed.field }}</span></p>{% endif %}
+      {% if ed.final_grade %}<p class="kv"><span class="label">Final grade:</span> <span{{ path(base ~ '.final_grade') }}>{{ ed.final_grade }}</span></p>{% endif %}
+      {% if ed.eqf_level %}<p class="kv"><span class="label">Level in EQF:</span> EQF level {{ ed.eqf_level }}</p>{% endif %}
+      {% if ed.thesis %}<p class="kv"><span class="label">Thesis:</span> <span{{ path(base ~ '.thesis') }}>{{ ed.thesis }}</span></p>{% endif %}
+      {% if ed.description %}<p{{ path(base ~ '.description', true) }}>{{ ed.description }}</p>{% endif %}
+    </div>
+  </div>
+  {% else %}{{ empty_hint('No education yet. Use “Add” in the Content panel.') }}
+  {% endfor %}
+</div>
+
+{%- elif key == 'languages' and (cv.languages or editable) %}
+{%- set langs = cv.languages or {} %}
+<div class="section"{{ sel('languages') }}>
+  <h2 class="section-title">{{ labels.languages }}</h2>
+  {% if langs.mother_tongues %}
+  <p class="mother-tongue"><span class="label">Mother tongue(s):</span> {{ langs.mother_tongues | map(attribute='name') | join(', ') }}</p>
+  {% endif %}
+  {% if langs.other %}
+  <div class="other-languages">
+  <p class="mother-tongue"><span class="label">Other language(s):</span></p>
+  <table class="lang-table">
+    <colgroup><col class="lang-col">{% for _ in range(5) %}<col class="level-col">{% endfor %}</colgroup>
+    <thead>
+      <tr><th rowspan="2"></th><th colspan="2">Understanding</th><th colspan="2">Speaking</th><th>Writing</th></tr>
+      <tr class="sub"><th>Listening</th><th>Reading</th><th>Spoken production</th><th>Spoken interaction</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for l in langs.other %}
+      <tr>
+        <td class="lang-name">{{ l.name }}</td>
+        <td class="level">{{ l.listening }}</td><td class="level">{{ l.reading }}</td>
+        <td class="level">{{ l.spoken_production }}</td><td class="level">{{ l.spoken_interaction }}</td>
+        <td class="level">{{ l.writing }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <div class="levels-legend">Levels: A1 and A2: Basic user; B1 and B2: Independent user; C1 and C2: Proficient user</div>
+  </div>
+  {% endif %}
+  {% if not langs.mother_tongues and not langs.other %}{{ empty_hint('Select this section to add languages.') }}{% endif %}
+</div>
+
+{%- elif key == 'digital_skills' and (cv.digital_skills or editable) %}
+<div class="section"{{ sel('digital_skills') }}>
+  <h2 class="section-title">{{ labels.digital_skills }}</h2>
+  {% if cv.digital_skills %}
+  <p class="skills-list">{% for s in cv.digital_skills %}<span class="skill"{{ path('digital_skills.' ~ loop.index0) }}>{{ s }}</span>{% endfor %}</p>
+  {% else %}{{ empty_hint('Select this section to add skills.') }}{% endif %}
+</div>
+
+{%- elif key == 'driving_licence' and (cv.driving_licence or editable) %}
+<div class="section"{{ sel('driving_licence') }}>
+  <h2 class="section-title">{{ labels.driving_licence }}</h2>
+  {% if cv.driving_licence %}<p><span class="label">Driving licence:</span> {{ cv.driving_licence | join(', ') }}</p>
+  {% else %}{{ empty_hint('Select this section to add licence categories.') }}{% endif %}
+</div>
+
+{%- elif key.startswith('custom:') %}
+{%- for sec in cv.additional_sections or [] if 'custom:' ~ sec.id == key %}
+{%- set si = (cv.additional_sections or []).index(sec) %}
+{%- if sec['items'] or editable %}
+<div class="section">
+  <h2 class="section-title"{{ sel('custom:' ~ sec.id) }}><span{{ path('additional_sections.' ~ si ~ '.title') }}>{{ sec.title }}</span></h2>
+  {% for item in sec['items'] or [] %}{% set base = 'additional_sections.' ~ si ~ '.items.' ~ loop.index0 %}
+  <div class="entry"{{ sel(base) }}>
+    {% if item.heading %}<h3 class="entry-title"{{ path(base ~ '.heading') }}>{{ item.heading }}</h3>{% endif %}
+    <div class="entry-body"><p{{ path(base ~ '.text', true) }}>{{ item.text }}</p></div>
+  </div>
+  {% else %}{{ empty_hint('No items yet. Use “Add” in the Content panel.') }}
+  {% endfor %}
+</div>
+{%- endif %}
+{%- endfor %}
+{%- endif %}
+
+{%- endfor %}
+
+</body>
+</html>

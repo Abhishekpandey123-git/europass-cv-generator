@@ -1,0 +1,97 @@
+{
+  "language": "en",
+  "personal": {
+    "first_name": "Marco",
+    "last_name": "Rossi",
+    "date_of_birth": "1990-05-12",
+    "nationalities": [{ "name": "Italian", "code": "it" }],
+    "gender": "Male",
+    "phone": { "type": "Mobile", "country_dialing": "39", "number": "3401234567" },
+    "email": "marco.rossi@example.com",
+    "website": "https://marcorossi.dev",
+    "address": {
+      "street": "Via Nazionale 45",
+      "postal_code": "00184",
+      "city": "Rome",
+      "country": "Italy",
+      "country_code": "it",
+      "type": "Home"
+    },
+    "photo": null
+  },
+  "about": "Backend developer with 8+ years of experience building scalable web services and data pipelines. Passionate about clean architecture, automation and mentoring junior developers.",
+  "work_experience": [
+    {
+      "title": "Senior Backend Developer",
+      "employer": "D2P Solutions S.r.l.",
+      "city": "Rome",
+      "country": "Italy",
+      "country_code": "it",
+      "start": "2021-03",
+      "end": null,
+      "description": [
+        "Designed and maintained REST APIs serving 2M+ requests per day.",
+        "Led the migration of legacy services to a containerised Kubernetes platform.",
+        "Mentored a team of four junior developers."
+      ]
+    },
+    {
+      "title": "Software Developer",
+      "employer": "Nexa Digital S.p.A.",
+      "city": "Milan",
+      "country": "Italy",
+      "country_code": "it",
+      "start": "2017-09",
+      "end": "2021-02",
+      "description": "Developed internal tools for the HR department, including an automated payroll reconciliation system that reduced manual work by 60%."
+    }
+  ],
+  "education": [
+    {
+      "title": "Master's Degree in Computer Engineering",
+      "organisation": "Sapienza University of Rome",
+      "city": "Rome",
+      "country": "Italy",
+      "country_code": "it",
+      "start": "2014-10",
+      "end": "2017-07",
+      "field": "Information and Communication Technologies",
+      "final_grade": "110/110 cum laude",
+      "eqf_level": 7,
+      "thesis": "Distributed scheduling algorithms for cloud workloads"
+    },
+    {
+      "title": "Bachelor's Degree in Computer Science",
+      "organisation": "University of Bologna",
+      "city": "Bologna",
+      "country": "Italy",
+      "country_code": "it",
+      "start": "2011-09",
+      "end": "2014-07",
+      "eqf_level": 6
+    }
+  ],
+  "languages": {
+    "mother_tongues": [{ "name": "Italian", "code": "ita" }],
+    "other": [
+      {
+        "name": "English", "code": "eng",
+        "listening": "C1", "reading": "C1", "spoken_production": "B2", "spoken_interaction": "B2", "writing": "C1"
+      },
+      {
+        "name": "Spanish", "code": "spa",
+        "listening": "B1", "reading": "B2", "spoken_production": "A2", "spoken_interaction": "A2", "writing": "A2"
+      }
+    ]
+  },
+  "digital_skills": ["Python", "Django", "PostgreSQL", "Docker", "Kubernetes", "Git", "Linux"],
+  "driving_licence": ["B"],
+  "additional_sections": [
+    {
+      "title": "Projects",
+      "items": [
+        { "heading": "Open-source contributor", "text": "Regular contributor to a popular Python task-queue library." }
+      ]
+    }
+  ]
+}

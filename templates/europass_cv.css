@@ -1,0 +1,189 @@
+/* ==========================================================================
+   Europass-style CV template
+   Values calibrated from a genuine Europass PDF (tools/inspect_reference.py):
+   Open Sans, 9pt body, #565656 text, #0c56a5 accent, ~9 mm side margins.
+   ========================================================================== */
+
+@font-face { font-family: "Open Sans"; font-weight: 400; font-style: normal; src: url("fonts/OpenSans-Regular.ttf"); }
+@font-face { font-family: "Open Sans"; font-weight: 400; font-style: italic; src: url("fonts/OpenSans-Italic.ttf"); }
+@font-face { font-family: "Open Sans"; font-weight: 600; font-style: normal; src: url("fonts/OpenSans-SemiBold.ttf"); }
+@font-face { font-family: "Open Sans"; font-weight: 700; font-style: normal; src: url("fonts/OpenSans-Bold.ttf"); }
+@font-face { font-family: "Open Sans"; font-weight: 700; font-style: italic; src: url("fonts/OpenSans-BoldItalic.ttf"); }
+
+:root {
+  --font-family: "Open Sans", "Arial", sans-serif;
+
+  --color-accent: #0c56a5;      /* name, section titles, entry titles, links */
+  --color-text: #565656;        /* body text and labels                      */
+  --color-date: #757575;        /* [ 07/2025 – Current ]                     */
+  --color-org: #6b6b6b;         /* organisation (bold italic)                */
+  --color-sep: #d3d3d3;         /* the | separators                          */
+  --color-rule: #82acd8;        /* line under section titles                 */
+  --color-border: #c6c6c6;      /* table borders, header divider             */
+
+  --size-name: 14pt;
+  --size-section: 10pt;
+  --size-body: 9pt;
+  --size-small: 8pt;
+
+  --photo-size: 28mm;
+}
+
+@page {
+  size: A4;
+  margin: 10mm 9mm 12mm 9mm;
+
+  @bottom-right {
+    content: counter(page) " / " counter(pages);
+    font-family: var(--font-family);
+    font-size: 7.5pt;
+    color: var(--color-date);
+  }
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-family);
+  font-size: var(--size-body);
+  line-height: 1.45;
+  color: var(--color-text);
+}
+
+a { color: var(--color-accent); text-decoration: none; }
+
+.label { font-weight: 700; }
+.label-semi { font-weight: 600; }
+.sep { color: var(--color-sep); padding: 0 1.5mm; }
+
+/* ---------- Header ---------------------------------------------------- */
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  gap: 5mm;
+  padding-bottom: 3mm;
+  border-bottom: 0.5pt solid var(--color-border);
+  margin-bottom: 4mm;
+}
+
+.photo {
+  width: var(--photo-size);
+  height: var(--photo-size);
+  object-fit: cover;
+  border-radius: var(--photo-radius, 0);
+  flex: 0 0 auto;
+}
+
+.header-main { flex: 1 1 auto; }
+
+.name {
+  font-size: var(--size-name);
+  font-weight: 700;
+  color: var(--color-accent);
+  margin: 0 0 2mm 0;
+  line-height: 1.2;
+}
+
+.logo { height: 12mm; flex: 0 0 auto; }
+
+.contact-line { margin: 0 0 1mm 0; }
+
+/* ---------- Sections -------------------------------------------------- */
+
+.section { margin-top: 4mm; }
+
+.section-title {
+  font-size: var(--size-section);
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--color-accent);
+  margin: 0 0 2.5mm 0;
+  padding-bottom: 0.8mm;
+  border-bottom: 0.8pt solid var(--color-rule);
+  page-break-after: avoid;
+}
+
+.about { margin: 0; }
+
+/* line breaks typed in the editor are kept */
+.about, .entry-body > p:not(.kv) { white-space: pre-line; }
+
+/* ---------- Entries (work / education) ------------------------------- */
+
+.entry {
+  margin-bottom: 3.5mm;
+  page-break-inside: avoid;
+}
+
+.entry-date { color: var(--color-date); margin-bottom: 0.5mm; }
+
+.entry-title {
+  font-size: var(--size-body);
+  font-weight: 700;
+  color: var(--color-accent);
+  margin: 0;
+}
+
+.entry-org {
+  font-weight: 700;
+  font-style: italic;
+  color: var(--color-org);
+  margin: 0.3mm 0 0.8mm 0;
+}
+
+.entry-body p { margin: 0 0 0.8mm 0; }
+.entry-body ul { margin: 0.5mm 0 0 0; padding-left: 4.5mm; }
+.entry-body li { margin-bottom: 0.4mm; }
+.kv { margin: 0.4mm 0; }
+
+/* ---------- Languages ------------------------------------------------- */
+
+.mother-tongue { margin: 0 0 2mm 0; }
+.other-languages { page-break-inside: avoid; }
+
+.lang-table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  margin-top: 1.5mm;
+}
+
+.lang-table col.lang-col { width: 20%; }
+.lang-table col.level-col { width: 16%; }
+
+.lang-table th,
+.lang-table td {
+  border-bottom: 0.5pt solid var(--color-border);
+  padding: 1.2mm 2mm;
+  text-align: center;
+}
+
+.lang-table thead th {
+  font-weight: 700;
+  color: var(--color-accent);
+  text-transform: uppercase;
+  font-size: var(--size-small);
+}
+
+.lang-table .sub th {
+  font-weight: 600;
+  color: var(--color-text);
+  text-transform: none;
+}
+
+.lang-table td.lang-name { text-align: left; font-weight: 700; color: var(--color-accent); }
+
+.levels-legend {
+  font-size: 7.5pt;
+  font-style: italic;
+  color: var(--color-date);
+  margin-top: 1.5mm;
+}
+
+/* ---------- Skills ---------------------------------------------------- */
+
+.skills-list { margin: 0; }
+.skills-list .skill:not(:last-child)::after { content: " | "; color: var(--color-sep); }
