@@ -129,11 +129,17 @@ def heuristic_extract(text: str) -> dict[str, Any]:
     }
 
 
-def groq_extract(text: str) -> dict[str, Any]:
-    key = os.getenv("GROQ_API_KEY")
+def openrouter_extract(text: str) -> dict[str, Any]:
+    """Extract structured CV data using OpenRouter's OpenAI-compatible API.
+
+    The PDF itself is processed locally; only extracted text is sent to the
+    configured OpenRouter model. If no API key is configured, use the local
+    heuristic extractor instead.
+    """
+    key = os.getenv("OPENROUTER_API_KEY")
     if not key:
         return heuristic_extract(text)
-    model = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+    model = os.getenv("OPENROUTER_MODEL", "openrouter/auto")
     schema_hint = {
         "given_name": "", "family_name": "", "email": "", "phone": "", "date_of_birth": "",
         "passport": "", "nationality": "", "gender": "", "address": "", "city": "",
@@ -146,14 +152,31 @@ def groq_extract(text: str) -> dict[str, Any]:
     }
     prompt = f"""Extract a CV into the JSON shape below. Use only facts present in the PDF text. Do not invent missing values. Dates should be YYYY-MM when possible; DOB should be YYYY-MM-DD. Preserve names and institutions.\n\nJSON shape:\n{json.dumps(schema_hint, ensure_ascii=False)}\n\nCV TEXT:\n{text[:60000]}"""
     r = requests.post(
-        "https://api.groq.com/openai/v1/chat/completions",
-        headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
-        json={"model": model, "temperature": 0, "response_format": {"type": "json_object"},
-              "messages": [{"role": "system", "content": "You are a strict CV information extraction engine."}, {"role": "user", "content": prompt}]},
+        "https://openrouter.ai/api/v1/chat/completions",
+        headers={
+            "Authorization": f"Bearer {key}",
+            "Content-Type": "application/json",
+            "HTTP-Referer": os.getenv("APP_URL", "http://127.0.0.1:8000"),
+            "X-Title": os.getenv("APP_NAME", "Europass PDF to XML Converter"),
+        },
+        json={
+            "model": model,
+            "temperature": 0,
+            "response_format": {"type": "json_object"},
+            "messages": [
+                {"role": "system", "content": "You are a strict CV information extraction engine. Return only valid JSON matching the requested shape."},
+                {"role": "user", "content": prompt},
+            ],
+        },
         timeout=90,
     )
     r.raise_for_status()
-    return json.loads(r.json()["choices"][0]["message"]["content"])
+    payload = r.json()
+    try:
+        content = payload["choices"][0]["message"]["content"]
+    except (KeyError, IndexError, TypeError) as exc:
+        raise RuntimeError(f"OpenRouter returned an unexpected response: {payload}") from exc
+    return json.loads(content)
 
 
 def clear_children(node, keep_tags: set[str] | None = None):
@@ -317,7 +340,7 @@ def home(request: Request):
 
 
 @app.post("/api/convert")
-async def convert(file: UploadFile = File(...), validate: bool = Form(False)):
+async def convert(file: UploadFile = File(...), validate_importer: bool = Form(False)):
     if not file.filename.lower().endswith(".pdf"):
         raise HTTPException(400, "Please upload a PDF CV.")
     data = await file.read()
@@ -327,7 +350,7 @@ async def convert(file: UploadFile = File(...), validate: bool = Form(False)):
         text = parse_pdf(data)
         if len(text.strip()) < 80:
             raise ValueError("Very little text was extracted. This may be a scanned/image-only PDF.")
-        structured = groq_extract(text)
+        structured = openrouter_extract(text)
         xml = make_xml(structured)
         validate_xml(xml)
         return JSONResponse({"filename": Path(file.filename).stem + "_europass.xml", "text_chars": len(text), "data": structured, "xml": xml.decode("utf-8"), "validated": False})
