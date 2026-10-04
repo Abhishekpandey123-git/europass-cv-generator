@@ -1,0 +1,423 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Candidate xmlns="http://www.europass.eu/1.0" xmlns:eures="http://www.europass_eures.eu/1.0" xmlns:hr="http://www.hr-xml.org/3" xmlns:oa="http://www.openapplications.org/oagis/9" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.europass.eu/1.0 Candidate.xsd">
+  <hr:DocumentID schemeID="europass-cv" schemeName="DocumentIdentifier" schemeAgencyName="EUROPASS" schemeVersionID="4.0"/>
+  <CandidateSupplier>
+    <hr:PartyID schemeID="europass-cv" schemeName="PartyID" schemeAgencyName="EUROPASS" schemeVersionID="1.0"/>
+    <hr:PartyName>Owner</hr:PartyName>
+    <PersonContact>
+      <PersonName>
+        <oa:GivenName>name</oa:GivenName>
+        <hr:FamilyName>last</hr:FamilyName>
+      </PersonName>
+      <Communication>
+        <ChannelCode>Email</ChannelCode>
+        <oa:URI>abhishekstock123@gmail.com</oa:URI>
+      </Communication>
+    </PersonContact>
+    <hr:PrecedenceCode>1</hr:PrecedenceCode>
+  </CandidateSupplier>
+  <CandidatePerson>
+    <PersonName>
+      <oa:GivenName>name</oa:GivenName>
+      <hr:FamilyName>last</hr:FamilyName>
+    </PersonName>
+    <Communication>
+      <ChannelCode>Email</ChannelCode>
+      <oa:URI>abhishekstock123@gmail.com</oa:URI>
+    </Communication>
+    <Communication>
+      <ChannelCode>Social Media</ChannelCode>
+      <UseCode>linkedin</UseCode>
+      <oa:URI>https://www.linkedin.com/in/abhishekpandey7820</oa:URI>
+    </Communication>
+    <Communication>
+      <ChannelCode>Telephone</ChannelCode>
+      <UseCode>mobile</UseCode>
+      <CountryDialing>91</CountryDialing>
+      <oa:DialNumber>8175026687</oa:DialNumber>
+      <CountryCode>in</CountryCode>
+    </Communication>
+    <Communication>
+      <UseCode>home</UseCode>
+      <Address type="home">
+        <oa:AddressLine>Shooting Range, Sudho Waala, Dehradun near river road</oa:AddressLine>
+        <oa:CityName>Dehradun</oa:CityName>
+        <CountryCode>in</CountryCode>
+        <oa:PostalCode>248007</oa:PostalCode>
+      </Address>
+    </Communication>
+    <NationalityCode>in</NationalityCode>
+    <hr:BirthDate>2005-11-16</hr:BirthDate>
+    <GenderCode>male</GenderCode>
+    <PrimaryLanguageCode name="FREE_TEXT">Hindi</PrimaryLanguageCode>
+  </CandidatePerson>
+  <CandidateProfile languageCode="en">
+    <hr:ID schemeID="europass-cv" schemeName="CandidateProfileID" schemeAgencyName="EUROPASS" schemeVersionID="1.0">europass-cv-2026</hr:ID>
+    <hr:ExecutiveSummary>&lt;p&gt;I am a Computer Science and Engineering undergraduate with a strong interest in software development, artificial intelligence, and cloud technologies. I have hands-on experience building web applications, AI-powered systems, REST APIs, and RAG-based solutions using technologies such as Python, Java, JavaScript, Fast API, Flask, Spring Boot, and modern AI/LLM tools. I enjoy solving technical problems, learning new technologies, and turning ideas into practical solutions. I am seeking opportunities to apply my technical skills, contribute to real-world projects, and grow as a software engineer.&lt;/p&gt;</hr:ExecutiveSummary>
+    <EmploymentHistory>
+      <EmployerHistory>
+        <hr:OrganizationName>Freelance Software Developer &amp; AI Consultant – Self-Employed / Freelance, India</hr:OrganizationName>
+        <OrganizationContact>
+          <Communication>
+            <Address>
+              <oa:CityName>Dehradun</oa:CityName>
+              <CountryCode>in</CountryCode>
+            </Address>
+          </Communication>
+          <Communication>
+            <ChannelCode>Web</ChannelCode>
+            <oa:URI>Student.com</oa:URI>
+          </Communication>
+        </OrganizationContact>
+        <PositionHistory>
+          <PositionTitle typeCode="FREETEXT">Software developer</PositionTitle>
+          <eures:EmploymentPeriod>
+            <eures:StartDate>
+              <hr:FormattedDateTime>2024-01</hr:FormattedDateTime>
+            </eures:StartDate>
+            <hr:CurrentIndicator>true</hr:CurrentIndicator>
+          </eures:EmploymentPeriod>
+          <oa:Description>&lt;p&gt;• Developed web applications and AI-powered software solutions for clients.&lt;/p&gt;&lt;p&gt;• Designed and implemented REST APIs and backend services using Python and Java.&lt;/p&gt;&lt;p&gt;• Built AI/LLM and Retrieval-Augmented Generation (RAG) applications.&lt;/p&gt;&lt;p&gt;• Integrated cloud services, databases, and third-party APIs.&lt;/p&gt;&lt;p&gt;• Analysed client requirements and delivered customized technical solutions.&lt;/p&gt;&lt;p&gt;• Provided technical consulting and troubleshooting support.&lt;/p&gt;</oa:Description>
+          <City>Dehradun</City>
+          <Country>in</Country>
+        </PositionHistory>
+      </EmployerHistory>
+    </EmploymentHistory>
+    <EducationHistory>
+      <EducationOrganizationAttendance>
+        <hr:OrganizationName>ABC Institute of Technology</hr:OrganizationName>
+        <OrganizationContact>
+          <Communication>
+            <Address>
+              <oa:CityName>Dehradun</oa:CityName>
+              <CountryCode>in</CountryCode>
+            </Address>
+          </Communication>
+          <Communication>
+            <ChannelCode>Web</ChannelCode>
+            <oa:URI>http://www.amu.ac.in</oa:URI>
+          </Communication>
+        </OrganizationContact>
+        <AttendancePeriod>
+          <StartDate>
+            <hr:FormattedDateTime>2024-08</hr:FormattedDateTime>
+          </StartDate>
+          <Ongoing>true</Ongoing>
+        </AttendancePeriod>
+        <EducationDegree>
+          <hr:DegreeName>Bachelor of Technology (B.Tech.) in Computer Science and Engineering</hr:DegreeName>
+          <oa:OccupationalSkillsCovered>&lt;p&gt;Field(s) of study: Engineering, manufacturing and construction.&lt;/p&gt;</oa:OccupationalSkillsCovered>
+        </EducationDegree>
+        <EducationLevelCode>6</EducationLevelCode>
+      </EducationOrganizationAttendance>
+    </EducationHistory>
+    <eures:Licenses>
+      <eures:License>
+        <hr:LicenseTypeCode>A2</hr:LicenseTypeCode>
+      </eures:License>
+      <eures:License>
+        <hr:LicenseTypeCode>B</hr:LicenseTypeCode>
+      </eures:License>
+      <eures:License>
+        <hr:LicenseTypeCode>CE</hr:LicenseTypeCode>
+      </eures:License>
+      <eures:License>
+        <hr:LicenseTypeCode>D</hr:LicenseTypeCode>
+      </eures:License>
+    </eures:Licenses>
+    <PersonQualifications>
+      <PersonCompetency>
+        <CompetencyID schemeName="NORMAL">eng</CompetencyID>
+        <hr:TaxonomyID>language</hr:TaxonomyID>
+        <eures:CompetencyDimension>
+          <hr:CompetencyDimensionTypeCode>CEF-Understanding-Listening</hr:CompetencyDimensionTypeCode>
+          <eures:Score>
+            <hr:ScoreText>A1</hr:ScoreText>
+          </eures:Score>
+        </eures:CompetencyDimension>
+        <eures:CompetencyDimension>
+          <hr:CompetencyDimensionTypeCode>CEF-Understanding-Reading</hr:CompetencyDimensionTypeCode>
+          <eures:Score>
+            <hr:ScoreText>A2</hr:ScoreText>
+          </eures:Score>
+        </eures:CompetencyDimension>
+        <eures:CompetencyDimension>
+          <hr:CompetencyDimensionTypeCode>CEF-Writing-Production</hr:CompetencyDimensionTypeCode>
+          <eures:Score>
+            <hr:ScoreText>A2</hr:ScoreText>
+          </eures:Score>
+        </eures:CompetencyDimension>
+        <eures:CompetencyDimension>
+          <hr:CompetencyDimensionTypeCode>CEF-Speaking-Production</hr:CompetencyDimensionTypeCode>
+          <eures:Score>
+            <hr:ScoreText>A2</hr:ScoreText>
+          </eures:Score>
+        </eures:CompetencyDimension>
+        <eures:CompetencyDimension>
+          <hr:CompetencyDimensionTypeCode>CEF-Speaking-Interaction</hr:CompetencyDimensionTypeCode>
+          <eures:Score>
+            <hr:ScoreText>C1</hr:ScoreText>
+          </eures:Score>
+        </eures:CompetencyDimension>
+      </PersonCompetency>
+    </PersonQualifications>
+    <Skills>
+      <PersonCompetency>
+        <hr:TaxonomyID>Digital_Skill</hr:TaxonomyID>
+        <hr:CompetencyName>Microsoft Office</hr:CompetencyName>
+      </PersonCompetency>
+      <PersonCompetency>
+        <hr:TaxonomyID>Digital_Skill</hr:TaxonomyID>
+        <hr:CompetencyName>Microsoft Excel</hr:CompetencyName>
+      </PersonCompetency>
+      <PersonCompetency>
+        <hr:TaxonomyID>Digital_Skill</hr:TaxonomyID>
+        <hr:CompetencyName>Microsoft Powerpoint</hr:CompetencyName>
+      </PersonCompetency>
+      <PersonCompetency>
+        <hr:TaxonomyID>Digital_Skill</hr:TaxonomyID>
+        <hr:CompetencyName>Google Drive</hr:CompetencyName>
+      </PersonCompetency>
+      <PersonCompetency>
+        <hr:TaxonomyID>Digital_Skill</hr:TaxonomyID>
+        <hr:CompetencyName>Python</hr:CompetencyName>
+      </PersonCompetency>
+      <PersonCompetency>
+        <hr:TaxonomyID>Digital_Skill</hr:TaxonomyID>
+        <hr:CompetencyName>Java</hr:CompetencyName>
+      </PersonCompetency>
+      <PersonCompetency>
+        <hr:TaxonomyID>Digital_Skill</hr:TaxonomyID>
+        <hr:CompetencyName>JavaScript</hr:CompetencyName>
+      </PersonCompetency>
+      <PersonCompetency>
+        <hr:TaxonomyID>Digital_Skill</hr:TaxonomyID>
+        <hr:CompetencyName>Fast API</hr:CompetencyName>
+      </PersonCompetency>
+      <PersonCompetency>
+        <hr:TaxonomyID>Digital_Skill</hr:TaxonomyID>
+        <hr:CompetencyName>Flask</hr:CompetencyName>
+      </PersonCompetency>
+      <PersonCompetency>
+        <hr:TaxonomyID>Digital_Skill</hr:TaxonomyID>
+        <hr:CompetencyName>Spring Boot</hr:CompetencyName>
+      </PersonCompetency>
+      <PersonCompetency>
+        <hr:TaxonomyID>Digital_Skill</hr:TaxonomyID>
+        <hr:CompetencyName>REST APIs</hr:CompetencyName>
+      </PersonCompetency>
+      <PersonCompetency>
+        <hr:TaxonomyID>Digital_Skill</hr:TaxonomyID>
+        <hr:CompetencyName>AI/LLM tools</hr:CompetencyName>
+      </PersonCompetency>
+      <PersonCompetency>
+        <hr:TaxonomyID>Digital_Skill</hr:TaxonomyID>
+        <hr:CompetencyName>RAG-based solutions</hr:CompetencyName>
+      </PersonCompetency>
+    </Skills>
+    <PublicationHistory>
+      <Publication>
+        <hr:FormattedPublicationDescription>&lt;p&gt;Research on designing a scalable Retrieval-Augmented Generation (RAG) architecture for an AI-powered study-abroad consultancy system, focusing on document retrieval, semantic search, conversational responses, and scalable AI inference.&lt;/p&gt;</hr:FormattedPublicationDescription>
+        <Title>AI-Powered Study Abroad Consultancy Tool – Scalable RAG Conversational Architecture</Title>
+        <Year>2026</Year>
+        <Authors>Abhishek Pandey</Authors>
+        <Journal>[Actual journal or conference name]</Journal>
+        <Publisher>[Actual publisher]</Publisher>
+      </Publication>
+    </PublicationHistory>
+    <Others>
+      <Title>Certifications</Title>
+      <Other>
+        <Title>Introduction to Generative AI</Title>
+        <Date>
+          <StartDate>
+            <hr:FormattedDateTime>2024-08</hr:FormattedDateTime>
+          </StartDate>
+        </Date>
+        <Description>&lt;p&gt;IBM SkillsBuild, 18/08/2024. Completed training in Generative AI, covering fundamental concepts, applications of generative AI, large language models, and responsible AI. Mode of learning: Online.&lt;/p&gt;</Description>
+      </Other>
+    </Others>
+    <Others>
+      <Title>Conferences and Seminars</Title>
+      <Other>
+        <Title>International Conference on Artificial Intelligence and Emerging Technologies</Title>
+        <Date>
+          <StartDate>
+            <hr:FormattedDateTime>2026-02</hr:FormattedDateTime>
+          </StartDate>
+          <EndDate>
+            <hr:FormattedDateTime>2026-11</hr:FormattedDateTime>
+          </EndDate>
+        </Date>
+        <Description>&lt;p&gt;Participated in sessions covering artificial intelligence, machine learning, generative AI, emerging technologies, and their applications in software development. Engaged with speakers and participants to gain insights into current technology trends.&lt;/p&gt;</Description>
+      </Other>
+    </Others>
+    <Others>
+      <Title>Creative Works</Title>
+      <Other>
+        <Title>AI-Powered Study Abroad Consultancy Tool</Title>
+        <Date>
+          <StartDate>
+            <hr:FormattedDateTime>2026-03</hr:FormattedDateTime>
+          </StartDate>
+          <EndDate>
+            <hr:FormattedDateTime>2026-04</hr:FormattedDateTime>
+          </EndDate>
+        </Date>
+        <Description>&lt;p&gt;Developed an AI-powered conversational consultancy system using Retrieval-Augmented Generation (RAG) to provide information about studying in Italy. Implemented document processing, semantic search, vector database integration, and LLM-based response generation. The system uses Python, Flask, Pinecone, Cohere embeddings, and Groq for AI inference.&lt;/p&gt;</Description>
+      </Other>
+    </Others>
+    <Others>
+      <Title>Honours and Awards</Title>
+      <Other>
+        <Title>Smart India Hackathon – Participant</Title>
+        <Date>
+          <StartDate>
+            <hr:FormattedDateTime>2026-08</hr:FormattedDateTime>
+          </StartDate>
+        </Date>
+        <Description>&lt;p&gt;Ministry of Education’s Innovation Cell / AICTE, 18/08/2026. Participated in Smart India Hackathon, working collaboratively on a technology-based problem and developing a practical solution.&lt;/p&gt;</Description>
+      </Other>
+    </Others>
+    <Others>
+      <Title>Networks and Memberships</Title>
+      <Other>
+        <Title>Google Developer Student Clubs</Title>
+        <Date>
+          <StartDate>
+            <hr:FormattedDateTime>2024-04</hr:FormattedDateTime>
+          </StartDate>
+          <EndDate>
+            <hr:FormattedDateTime>2025-04</hr:FormattedDateTime>
+          </EndDate>
+        </Date>
+        <Description>&lt;p&gt;Participated in a student technology community focused on software development, cloud computing, artificial intelligence, technical workshops, and collaborative learning.&lt;/p&gt;</Description>
+      </Other>
+    </Others>
+    <Others>
+      <Title>Projects</Title>
+      <Other>
+        <Title>AI-Powered Study Abroad Consultancy Tool</Title>
+        <Date>
+          <StartDate>
+            <hr:FormattedDateTime>2024-03</hr:FormattedDateTime>
+          </StartDate>
+          <EndDate>
+            <hr:FormattedDateTime>2025-05</hr:FormattedDateTime>
+          </EndDate>
+        </Date>
+        <Description>&lt;p&gt;Developed an AI-powered conversational consultancy tool using Retrieval-Augmented Generation (RAG) to assist students with study-abroad information. Implemented document processing, semantic search, vector database integration, and LLM-based response generation using Python, Flask, Pinecone, Cohere embeddings, and Groq.&lt;/p&gt;</Description>
+      </Other>
+    </Others>
+    <Others>
+      <Title>Recommendations</Title>
+      <Other>
+        <Title>Dr. [Faculty Name]</Title>
+        <Description>&lt;p&gt;Assistant Professor, Department of Computer Science &amp;amp; Engineering. I have known Abhishek through his academic work and technical projects. He has demonstrated a strong interest in software development and emerging technologies, along with a willingness to learn and take responsibility for technical tasks. I recommend him for academic and professional opportunities in computer science and software engineering. Email: abc@gmail.com | Phone number: (+91) 8175026666.&lt;/p&gt;</Description>
+      </Other>
+    </Others>
+    <Others>
+      <Title>Social and Political Activities</Title>
+      <Other>
+        <Title>Community Service and Volunteering</Title>
+        <Date>
+          <StartDate>
+            <hr:FormattedDateTime>2023-02</hr:FormattedDateTime>
+          </StartDate>
+          <EndDate>
+            <hr:FormattedDateTime>2023-08</hr:FormattedDateTime>
+          </EndDate>
+        </Date>
+        <Description>&lt;p&gt;Participated in community-oriented activities and volunteering initiatives, contributing to awareness, coordination, and support activities. Worked collaboratively with other participants and developed communication, teamwork, and organisational skills.&lt;/p&gt;</Description>
+      </Other>
+    </Others>
+    <Others>
+      <Title>Volunteering</Title>
+      <Other>
+        <Title>Community Service Volunteer</Title>
+        <Date>
+          <StartDate>
+            <hr:FormattedDateTime>2021-06</hr:FormattedDateTime>
+          </StartDate>
+          <EndDate>
+            <hr:FormattedDateTime>2022-11</hr:FormattedDateTime>
+          </EndDate>
+        </Date>
+        <Description>&lt;p&gt;Supported community-oriented activities and assisted with event coordination and participant engagement. Worked collaboratively with other volunteers while developing communication, teamwork, and organisational skills.&lt;/p&gt;</Description>
+      </Other>
+    </Others>
+    <Others>
+      <Title>Hobbies and Interests</Title>
+      <Other>
+        <Title>Technology, Artificial Intelligence &amp; Software Development</Title>
+        <Description>&lt;p&gt;Interested in exploring emerging technologies, artificial intelligence, software development, and open-source projects. Enjoy building practical technology solutions, experimenting with new tools, and continuously learning through technical projects and problem-solving.&lt;/p&gt;</Description>
+      </Other>
+    </Others>
+    <Others>
+      <Title>Additional Statement</Title>
+      <Other>
+        <Title>Personal Statement</Title>
+        <Description>&lt;p&gt;I am fully committed to pursuing the MSc in Economics and Management. I aim to develop strong analytical, economic, and management skills to build a career in business strategy, consulting, or economic analysis.&lt;/p&gt;</Description>
+      </Other>
+    </Others>
+  </CandidateProfile>
+  <RenderingInformation>
+    <Design>
+      <Template>Template1</Template>
+      <Color>Default</Color>
+      <FontSize>Medium</FontSize>
+      <Logo>FirstPage</Logo>
+      <PageNumbers>true</PageNumbers>
+      <SectionsOrder>
+        <Section>
+          <Title>work-experience</Title>
+        </Section>
+        <Section>
+          <Title>education-training</Title>
+        </Section>
+        <Section>
+          <Title>language</Title>
+        </Section>
+        <Section>
+          <Title>profile-skills</Title>
+        </Section>
+        <Section>
+          <Title>driving-licence</Title>
+        </Section>
+        <Section>
+          <Title>publication</Title>
+        </Section>
+        <Section>
+          <Title>certifications</Title>
+        </Section>
+        <Section>
+          <Title>conference-seminar</Title>
+        </Section>
+        <Section>
+          <Title>creative-works</Title>
+        </Section>
+        <Section>
+          <Title>honour-award</Title>
+        </Section>
+        <Section>
+          <Title>membership</Title>
+        </Section>
+        <Section>
+          <Title>projects</Title>
+        </Section>
+        <Section>
+          <Title>recommendation</Title>
+        </Section>
+        <Section>
+          <Title>social-or-political-activity</Title>
+        </Section>
+        <Section>
+          <Title>volunteering</Title>
+        </Section>
+        <Section>
+          <Title>hobbies-interests</Title>
+        </Section>
+      </SectionsOrder>
+    </Design>
+  </RenderingInformation>
+</Candidate>

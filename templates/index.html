@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Europass PDF → XML Converter</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="wrap">
+<header><div class="brand">EUROPASS <span>PDF → XML</span></div><div class="badge">Current Candidate XML</div></header>
+<main>
+<section class="hero"><h1>Convert a CV PDF into Europass-compatible XML</h1><p>Upload a CV, extract its structured information, generate XML from a known-good current Europass template, review the result, and download it.</p></section>
+<section class="card">
+<label class="drop" id="drop"><input id="file" type="file" accept="application/pdf"><div class="icon">↑</div><strong>Drop PDF here</strong><span>or click to choose a CV · max {{ max_mb }} MB</span></label>
+<div class="actions"><button id="convert" disabled>Convert to Europass XML</button></div>
+<div id="status" class="status hidden"></div>
+</section>
+<section id="result" class="card hidden">
+<div class="result-head"><h2>Extracted CV</h2><span id="count"></span></div>
+<div class="grid"><div><h3>Person</h3><pre id="person"></pre></div><div><h3>Sections</h3><pre id="sections"></pre></div></div>
+<div class="actions"><button id="download">Download XML</button><button class="secondary" id="validate">Validate with Europass</button></div>
+<p class="privacy">Validation is optional. If clicked, the XML is sent to the official Europass importer for compliance checking.</p>
+<details><summary>Preview XML</summary><pre id="xml"></pre></details>
+</section>
+</main>
+<footer>Built for current Europass Candidate XML · Keep a known-good template when Europass changes its importer.</footer>
+</div>
+<script src="/static/app.js"></script>
+</body></html>
