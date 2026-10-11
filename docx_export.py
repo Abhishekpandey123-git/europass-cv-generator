@@ -9,6 +9,7 @@ if Open Sans is missing there, Word substitutes a similar font.
 from __future__ import annotations
 
 import base64
+import html
 import io
 import re
 
@@ -19,7 +20,36 @@ from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.shared import Mm, Pt, RGBColor
 
-from cv_design import FONTS, SECTION_LABELS, ensure_ids, mix_with_white, normalize
+from docx.enum.text import WD_ALIGN_PARAGRAPH as ALIGN
+
+from cv_design import GENERIC_SECTIONS, FONTS, SECTION_LABELS, ensure_ids, mix_with_white, normalize
+
+# inline formatting the editor can apply
+_RICH = re.compile(r"</?(b|strong|i|em|u|s|br)\s*/?>", re.I)
+_ALIGN = {"left": ALIGN.LEFT, "center": ALIGN.CENTER, "right": ALIGN.RIGHT, "justify": ALIGN.JUSTIFY}
+
+
+def rich_parts(text: str):
+    """Split '<b>a</b> b' into [(text, {bold: True}), (' b', {})] for Word runs."""
+    out, marks = [], {"b": 0, "i": 0, "u": 0, "s": 0}
+    alias = {"strong": "b", "em": "i"}
+    pos = 0
+    for m in _RICH.finditer(str(text or "")):
+        chunk = text[pos:m.start()]
+        if chunk:
+            out.append((html.unescape(chunk), dict(marks)))
+        tag = alias.get(m.group(1).lower(), m.group(1).lower())
+        if tag == "br":
+            out.append(("\n", dict(marks)))
+        elif m.group(0).startswith("</"):
+            marks[tag] = max(0, marks[tag] - 1)
+        else:
+            marks[tag] += 1
+        pos = m.end()
+    rest = text[pos:] if isinstance(text, str) else ""
+    if rest:
+        out.append((html.unescape(rest), dict(marks)))
+    return out or [("", {})]
 
 GREY_DATE = RGBColor(0x75, 0x75, 0x75)
 GREY_ORG = RGBColor(0x6B, 0x6B, 0x6B)
@@ -61,6 +91,8 @@ def cell_border_bottom(cell, hex_color="C6C6C6"):
 
 
 class Writer:
+    """Builds the .docx. Section names, spacing and alignment follow the design."""
+
     def __init__(self, cv: dict):
         ensure_ids(cv)
         self.cv = cv
@@ -95,7 +127,8 @@ class Writer:
         for attr in ("w:ascii", "w:hAnsi", "w:cs", "w:eastAsia"):
             rfonts.set(qn(attr), font_name)
         pf = normal.paragraph_format
-        pf.space_before, pf.space_after, pf.line_spacing = Pt(0), Pt(1.5), 1.1
+        pf.space_before, pf.space_after = Pt(0), Pt(1.5)
+        pf.line_spacing = max(1.0, float(self.design["line_height"]) * 0.78)
 
         if self.design["page_numbers"]:
             p = sec.footer.paragraphs[0]
@@ -120,6 +153,28 @@ class Writer:
         p.paragraph_format.space_after = Pt(space_after)
         return p
 
+    def rich(self, p, text, color=None, size=None):
+        """Add text to a paragraph, keeping bold / italic / underline marks."""
+        for chunk, marks in rich_parts(text):
+            for i, line in enumerate(chunk.split("\n")):
+                if i:
+                    p.add_run().add_break()
+                if not line:
+                    continue
+                r = self.run(p, line, bold=bool(marks.get("b")), italic=bool(marks.get("i")),
+                             color=color, size=size)
+                if marks.get("u"):
+                    r.underline = True
+                if marks.get("s"):
+                    r.font.strike = True
+        return p
+
+    def align(self, p, path):
+        a = self.design["block_align"].get(path)
+        if a in _ALIGN:
+            p.alignment = _ALIGN[a]
+        return p
+
     def run(self, p, text, bold=False, italic=False, color=None, size=None, semibold=False):
         r = p.add_run(text)
         r.bold = bold or semibold
@@ -130,6 +185,9 @@ class Writer:
             r.font.size = size
         return r
 
+    def L(self, key, default):
+        return self.design.get("labels", {}).get(key, default)
+
     def labelled(self, pairs, p=None):
         p = p or self.para()
         for i, (label, value) in enumerate(pairs):
@@ -139,9 +197,12 @@ class Writer:
             self.run(p, str(value))
         return p
 
+    def label(self, key: str) -> str:
+        return self.design["section_titles"].get(key) or SECTION_LABELS[key]
+
     def section_title(self, title):
         p = self.para(space_after=4)
-        p.paragraph_format.space_before = Pt(9)
+        p.paragraph_format.space_before = Pt(self.design["section_gap"] * 2.2)
         p.paragraph_format.keep_with_next = True
         self.run(p, title.upper(), bold=True, color=self.accent, size=self.size_section)
         bottom_border(p, mix_with_white(self.design["accent"], 0.45), size=6)
@@ -163,18 +224,18 @@ class Writer:
         if loc:
             self.labelled(loc)
 
-    def description(self, desc):
+    def description(self, desc, path=None):
         if not desc:
             return
         if isinstance(desc, str):
-            for line in desc.split("\n"):
+            for line in re.split(r"<br\s*/?>|\n", desc):
                 if line.strip():
-                    self.run(self.para(), line.strip())
+                    self.align(self.rich(self.para(), line.strip()), path)
         else:
-            for item in desc:
-                p = self.doc.add_paragraph(style="List Bullet")
+            for i, item in enumerate(desc):
+                p = self.container.add_paragraph(style="List Bullet")
                 p.paragraph_format.space_after = Pt(1)
-                self.run(p, item)
+                self.rich(p, item)
         self.para(space_after=3)
 
     # ----------------------------------------------------------- sections ---
@@ -212,11 +273,11 @@ class Writer:
 
         line1 = []
         if p.get("date_of_birth"):
-            line1.append(("Date of birth", fmt_date(p["date_of_birth"])))
+            line1.append((self.L("dob", "Date of birth"), fmt_date(p["date_of_birth"])))
         if p.get("nationalities"):
-            line1.append(("Nationality", ", ".join(n.get("name", "") for n in p["nationalities"])))
+            line1.append((self.L("nationality", "Nationality"), ", ".join(n.get("name", "") for n in p["nationalities"])))
         if p.get("gender"):
-            line1.append(("Gender", p["gender"]))
+            line1.append((self.L("gender", "Gender"), p["gender"]))
         if line1:
             self.labelled(line1)
 
@@ -224,11 +285,11 @@ class Writer:
         ph = p.get("phone") or {}
         if ph.get("number"):
             num = (f"(+{ph['country_dialing']}) " if ph.get("country_dialing") else "") + ph["number"]
-            line2.append(("Phone number", num + (f" ({ph['type']})" if ph.get("type") else "")))
+            line2.append((self.L("phone", "Phone number"), num + (f" ({ph['type']})" if ph.get("type") else "")))
         if p.get("email"):
-            line2.append(("Email address", p["email"]))
+            line2.append((self.L("email", "Email address"), p["email"]))
         if p.get("website"):
-            line2.append(("Website", p["website"]))
+            line2.append((self.L("website", "Website"), p["website"]))
         if line2:
             self.labelled(line2)
 
@@ -236,7 +297,7 @@ class Writer:
         if a.get("street") or a.get("city") or a.get("country"):
             city = f"{a.get('postal_code', '')} {a.get('city', '')}".strip()
             value = ", ".join(x for x in (a.get("street"), city, a.get("country")) if x)
-            last = self.labelled([("Address", value + (f" ({a['type']})" if a.get("type") else ""))])
+            last = self.labelled([(self.L("address", "Address"), value + (f" ({a['type']})" if a.get("type") else ""))])
         else:
             last = self.para()
 
@@ -250,22 +311,22 @@ class Writer:
 
     def about(self):
         if self.cv.get("about"):
-            self.section_title(SECTION_LABELS["about"])
-            self.run(self.para(), self.cv["about"])
+            self.section_title(self.label("about"))
+            self.align(self.rich(self.para(), self.cv["about"]), "about")
 
     def work_experience(self):
         jobs = self.cv.get("work_experience") or []
         if jobs:
-            self.section_title(SECTION_LABELS["work_experience"])
-            for job in jobs:
+            self.section_title(self.label("work_experience"))
+            for i, job in enumerate(jobs):
                 self.entry_head(job, "title", "employer")
-                self.description(job.get("description"))
+                self.description(job.get("description"), f"work_experience.{i}.description")
 
     def education(self):
         eds = self.cv.get("education") or []
         if eds:
-            self.section_title(SECTION_LABELS["education"])
-            for ed in eds:
+            self.section_title(self.label("education"))
+            for i, ed in enumerate(eds):
                 self.entry_head(ed, "title", "organisation")
                 for label, key in (("Field(s) of study", "field"), ("Final grade", "final_grade"), ("Thesis", "thesis")):
                     if ed.get(key):
@@ -273,7 +334,7 @@ class Writer:
                 if ed.get("eqf_level"):
                     self.labelled([("Level in EQF", f"EQF level {ed['eqf_level']}")])
                 if ed.get("description"):
-                    self.description(ed["description"])
+                    self.description(ed["description"], f"education.{i}.description")
                 else:
                     self.para(space_after=3)
 
@@ -281,13 +342,27 @@ class Writer:
         langs = self.cv.get("languages") or {}
         if not (langs.get("mother_tongues") or langs.get("other")):
             return
-        self.section_title(SECTION_LABELS["languages"])
+        self.section_title(self.label("languages"))
         if langs.get("mother_tongues"):
             self.labelled([("Mother tongue(s)", ", ".join(m.get("name", "") for m in langs["mother_tongues"]))])
         other = langs.get("other") or []
         if not other:
             return
         self.labelled([("Other language(s)", "")])
+        if self.design["languages_layout"] == "list":
+            keys = [("listening", "Listening"), ("reading", "Reading"),
+                    ("spoken_production", "Spoken production"),
+                    ("spoken_interaction", "Spoken interaction"), ("writing", "Writing")]
+            for lang in other:
+                p = self.para(space_after=1.5)
+                self.run(p, lang.get("name", ""), bold=True, color=self.accent)
+                levels = [f"{label} {lang[k]}" for k, label in keys if lang.get(k)]
+                if levels:
+                    self.run(p, "   " + " · ".join(levels), size=Pt(8 * self.design["scale"]))
+            p = self.para(space_after=3)
+            self.run(p, "Levels: A1 and A2: Basic user; B1 and B2: Independent user; C1 and C2: Proficient user",
+                     italic=True, color=GREY_DATE, size=Pt(7.5))
+            return
         table = self.doc.add_table(rows=2 + len(other), cols=6)
         table.alignment = WD_TABLE_ALIGNMENT.CENTER
         widths = [Mm(36)] + [Mm(30.4)] * 5
@@ -325,7 +400,7 @@ class Writer:
     def digital_skills(self):
         skills = self.cv.get("digital_skills") or []
         if skills:
-            self.section_title(SECTION_LABELS["digital_skills"])
+            self.section_title(self.label("digital_skills"))
             p = self.para()
             for i, s in enumerate(skills):
                 if i:
@@ -335,18 +410,88 @@ class Writer:
     def driving_licence(self):
         lic = self.cv.get("driving_licence") or []
         if lic:
-            self.section_title(SECTION_LABELS["driving_licence"])
+            self.section_title(self.label("driving_licence"))
             self.labelled([("Driving licence", ", ".join(lic))])
+
+    # --- typed optional sections -------------------------------------------
+    def generic_section(self, key):
+        """Nine sections share one entry shape; one writer covers them all."""
+        items = self.cv.get(key) or []
+        if not items:
+            return
+        self.section_title(self.label(key))
+        for i, item in enumerate(items):
+            if item.get("title"):
+                p = self.para(space_after=0.5)
+                self.run(p, item["title"], bold=True, color=self.accent)
+            if item.get("organisation"):
+                p = self.para(space_after=0.5)
+                self.run(p, item["organisation"], italic=True)
+            span = " – ".join(x for x in (item.get("start"), item.get("end") or
+                                          ("Current" if item.get("start") else "")) if x)
+            bits = [b for b in (f"[ {span} ]" if span else "",
+                                f"[ {item['date']} ]" if item.get("date") else "",
+                                item.get("location") or "") if b]
+            if bits:
+                p = self.para(space_after=0.5)
+                self.run(p, "  ".join(bits), color=GREY_SEP)
+            self.description(item.get("description"), f"{key}.{i}.description")
+            pairs = [(k, v) for k, v in (("Mode of learning", item.get("mode")),
+                                         ("Link", item.get("url"))) if v]
+            if pairs:
+                self.labelled(pairs)
+
+    def publications(self):
+        items = self.cv.get("publications") or []
+        if not items:
+            return
+        self.section_title(self.label("publications"))
+        for i, item in enumerate(items):
+            if item.get("title"):
+                p = self.para(space_after=0.5)
+                self.run(p, item["title"], bold=True, color=self.accent)
+            if item.get("year"):
+                p = self.para(space_after=0.5)
+                self.run(p, f"[ {item['year']} ]", color=GREY_SEP)
+            self.description(item.get("description"), f"publications.{i}.description")
+            pairs = [(k, v) for k, v in (("Reference", item.get("reference")),
+                                         ("Authors", item.get("authors")),
+                                         ("Journal Name", item.get("journal")),
+                                         ("Volume, Issue and Pages", item.get("volume")),
+                                         ("Publisher", item.get("publisher")),
+                                         ("DOI", item.get("doi"))) if v]
+            if pairs:
+                self.labelled(pairs)
+
+    def recommendations(self):
+        items = self.cv.get("recommendations") or []
+        if not items:
+            return
+        self.section_title(self.label("recommendations"))
+        for i, item in enumerate(items):
+            head = " | ".join(x for x in (item.get("name"), item.get("role")) if x)
+            if head:
+                p = self.para(space_after=0.5)
+                self.run(p, head, bold=True, color=self.accent)
+            self.description(item.get("description"), f"recommendations.{i}.description")
+            phone = item.get("phone") or ""
+            if phone and item.get("phone_dialing"):
+                phone = f"(+{item['phone_dialing']}) {phone}"
+            pairs = [(k, v) for k, v in (("Email", item.get("email")),
+                                         ("Phone number", phone)) if v]
+            if pairs:
+                self.labelled(pairs)
 
     def custom(self, sec_id):
         for sec in self.cv.get("additional_sections") or []:
             if sec.get("id") == sec_id and sec.get("items"):
+                si = (self.cv.get("additional_sections") or []).index(sec)
                 self.section_title(sec.get("title", ""))
-                for item in sec["items"]:
+                for ii, item in enumerate(sec["items"]):
                     if item.get("heading"):
                         p = self.para(space_after=0.5)
                         self.run(p, item["heading"], bold=True, color=self.accent)
-                    self.description(item.get("text"))
+                    self.description(item.get("text"), f"additional_sections.{si}.items.{ii}.text")
 
     # --------------------------------------------------------------- main ---
     def build(self) -> bytes:
@@ -354,6 +499,8 @@ class Writer:
         for key in self.sections:
             if key.startswith("custom:"):
                 self.custom(key.split(":", 1)[1])
+            elif key in GENERIC_SECTIONS:
+                self.generic_section(key)
             else:
                 getattr(self, key)()
         out = io.BytesIO()

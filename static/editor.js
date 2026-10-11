@@ -8,13 +8,63 @@
 (() => {
   "use strict";
 
-  const STORAGE_KEY = "europass-cv-editor:v1";
+  const CV_ID = (location.pathname.match(/^\/edit\/([\w-]+)/) || [])[1];
   const LEVELS = ["", "A1", "A2", "B1", "B2", "C1", "C2"];
   const LEVEL_KEYS = [
     ["listening", "Listen"], ["reading", "Read"], ["spoken_production", "Speak"],
     ["spoken_interaction", "Interact"], ["writing", "Write"],
   ];
   const LICENCES = ["AM", "A1", "A2", "A", "B1", "B", "BE", "C1", "C1E", "C", "CE", "D1", "D1E", "D", "DE"];
+
+  // The optional Europass sections, each with its own fields. These used to be
+  // free-text {heading, text} pairs, which could not hold a date, a location or
+  // a link - so none of that reached the XML. Field lists mirror sections.py.
+  const TYPED_SECTIONS = {
+    certifications:   { label: "Certifications",
+                        fields: ["title", "organisation", "date", "mode", "url", "description"],
+                        blank: { title: "Certificate name", organisation: "", date: "", mode: "", url: "", description: "" } },
+    honours_awards:   { label: "Honours and awards",
+                        fields: ["title", "organisation", "date", "description"],
+                        blank: { title: "Award name", organisation: "", date: "", description: "" } },
+    conferences:      { label: "Conferences and seminars",
+                        fields: ["title", "start", "end", "location", "url", "description"],
+                        blank: { title: "Conference name", start: "", end: "", location: "", url: "", description: "" } },
+    creative_works:   { label: "Creative works",
+                        fields: ["title", "start", "end", "url", "description"],
+                        blank: { title: "Work title", start: "", end: "", url: "", description: "" } },
+    projects:         { label: "Projects",
+                        fields: ["title", "start", "end", "url", "description"],
+                        blank: { title: "Project name", start: "", end: "", url: "", description: "" } },
+    publications:     { label: "Publications",
+                        fields: ["title", "year", "authors", "journal", "publisher", "volume", "doi", "reference", "description"],
+                        blank: { title: "Publication title", year: "", authors: "", journal: "", publisher: "", volume: "", doi: "", reference: "", description: "" } },
+    recommendations:  { label: "Recommendations",
+                        fields: ["name", "role", "email", "phone_dialing", "phone", "description"],
+                        blank: { name: "Referee name", role: "", email: "", phone_dialing: "", phone: "", description: "" } },
+    social_political: { label: "Social and political activities",
+                        fields: ["title", "start", "end", "location", "description"],
+                        blank: { title: "Activity name", start: "", end: "", location: "", description: "" } },
+    volunteering:     { label: "Volunteering",
+                        fields: ["title", "start", "end", "location", "description"],
+                        blank: { title: "Role", start: "", end: "", location: "", description: "" } },
+    networks:         { label: "Networks and memberships",
+                        fields: ["title", "start", "end", "location", "description"],
+                        blank: { title: "Network name", start: "", end: "", location: "", description: "" } },
+    hobbies:          { label: "Hobbies and interests",
+                        fields: ["title", "description"],
+                        blank: { title: "Interest", description: "" } },
+  };
+
+  const FIELD_LABELS = {
+    title: "Title", organisation: "Organisation", date: "Date", mode: "Mode of learning",
+    url: "Link", description: "Description", start: "From", end: "To", location: "Location",
+    year: "Year", authors: "Authors", journal: "Journal name", publisher: "Publisher",
+    volume: "Volume, issue and pages", doi: "DOI", reference: "Reference",
+    name: "Name", role: "Role", email: "Email", phone: "Phone number",
+    phone_dialing: "Country dialling code",
+  };
+  const TYPED_KEYS = Object.keys(TYPED_SECTIONS);
+
   const SWATCHES = [
     ["#0c56a5", "Europass blue"], ["#1f4e79", "Navy"], ["#2e6b57", "Forest"],
     ["#7a2e4a", "Burgundy"], ["#a4541c", "Rust"], ["#3b3f45", "Graphite"],
@@ -34,6 +84,9 @@
     renderSeq: 0,
     renderTimer: null,
     saveTimer: null,
+    saving: null,
+    unsaved: false,
+    record: null,
   };
 
   const els = {
@@ -94,6 +147,10 @@
 
   async function api(url, options = {}) {
     const res = await fetch(url, options);
+    if (res.status === 401) {
+      location.href = `/login?next=${encodeURIComponent(location.pathname)}`;
+      throw new Error("Please sign in again.");
+    }
     if (!res.ok) {
       let msg = `Request failed (${res.status}).`;
       try { msg = (await res.json()).error || msg; } catch { /* keep default */ }
@@ -217,18 +274,59 @@
 
   // ------------------------------------------------------------- autosave --
 
+  function setSaveState(text, isError = false) {
+    els.saveState.textContent = text;
+    els.saveState.classList.toggle("is-error", isError);
+  }
+
   function scheduleSave() {
-    els.saveState.textContent = "Saving…";
+    state.unsaved = true;
+    setSaveState("Saving…");
     clearTimeout(state.saveTimer);
-    state.saveTimer = setTimeout(() => {
+    state.saveTimer = setTimeout(saveNow, 700);
+  }
+
+  async function saveNow() {
+    clearTimeout(state.saveTimer);
+    if (state.saving) { state.saveTimer = setTimeout(saveNow, 300); return; }
+    const body = snapshot();
+    state.saving = (async () => {
       try {
-        localStorage.setItem(STORAGE_KEY, snapshot());
-        els.saveState.textContent = "Saved on this computer";
-      } catch {
-        els.saveState.textContent = "Not saved: storage is full";
-        toast("Autosave failed because the browser storage is full. Download a JSON backup, or use a smaller photo.", true);
+        const res = await api(`/api/cvs/${CV_ID}`, {
+          method: "PUT", headers: { "Content-Type": "application/json" }, body: `{"cv":${body}}`,
+        });
+        const saved = await res.json();
+        if (snapshot() === body) state.unsaved = false;
+        applyRecord(saved);
+        setSaveState(state.unsaved ? "Saving…" : "All changes saved");
+      } catch (err) {
+        setSaveState("Not saved. Retrying…", true);
+        state.saveTimer = setTimeout(saveNow, 4000);
+      } finally {
+        state.saving = null;
       }
-    }, 400);
+    })();
+    return state.saving;
+  }
+
+  function applyRecord(rec) {
+    state.record = Object.assign(state.record || {}, rec);
+    const name = state.record.name || "Untitled CV";
+    $("#cvName").textContent = name;
+    document.title = `${name} · Europass CV service`;
+    const sel = $("#statusSelect");
+    sel.value = state.record.status;
+    sel.dataset.v = state.record.status;
+    renderChecks();
+  }
+
+  function renderChecks() {
+    const box = $("#checks");
+    const list = (state.record && state.record.warnings) || [];
+    box.hidden = !list.length;
+    box.innerHTML = list.length ? `<strong>Check before sending (${list.length})</strong>
+      <ul>${list.map((w) => `<li>${esc(w)}</li>`).join("")}</ul>
+      <button class="btn small" id="clearChecks">Mark all as checked</button>` : "";
   }
 
   // ----------------------------------------------------------- page render --
@@ -303,26 +401,111 @@
   }
 
   const MM = 96 / 25.4;
+  const GAP_PX = 28;                       // grey gap between page sheets (screen px)
 
+  /**
+   * Lay the CV out as separate page sheets, like Canva: page 1, a grey gap,
+   * page 2, and so on. The CV stays one editable document; at each real page
+   * break we push the first block that would cross the seam down onto the next
+   * sheet (which also opens the grey gap), then draw the blue Europass frame
+   * for each sheet and the grey strip that hides the join.
+   */
   function resizePage(doc) {
     const body = doc.body;
     if (!body) return;
-    doc.querySelectorAll(".page-guide").forEach((g) => g.remove());
-    const height = Math.max(297 * MM, doc.documentElement.scrollHeight);
-    els.page.style.height = `${Math.ceil(height)}px`;
-
-    // Approximate page ends: 10 mm top margin + 275 mm of content per A4 page.
-    const pageContent = 275 * MM;
-    for (let y = 10 * MM + pageContent, n = 2; y < height - 20; y += pageContent, n++) {
-      const g = doc.createElement("div");
-      g.className = "page-guide";
-      g.setAttribute("aria-hidden", "true");
-      g.textContent = `Page ${n}`;
-      g.style.cssText = `position:absolute;left:0;right:0;top:${y}px;border-top:1px dashed #d68b1d;
-        pointer-events:none;font:600 9px/1 "Public Sans",sans-serif;color:#d68b1d;text-align:right;padding:3px 6px 0;`;
-      body.appendChild(g);
-    }
+    doc.querySelectorAll(".page-frame, .page-gap").forEach((n) => n.remove());
+    body.querySelectorAll("[data-pushed]").forEach((el) => {
+      el.style.marginTop = el.dataset.pushed;      // undo the previous pass's nudges
+      el.removeAttribute("data-pushed");
+    });
     body.style.position = "relative";
+
+    const firstTop = Number(body.dataset.firstTop || 10);
+    const top = Number(body.dataset.top || 10);
+    const bottom = Number(body.dataset.bottom || 12);
+    const pageContent = (297 - top - bottom) * MM;    // usable height of a normal page
+    const firstContent = (297 - firstTop - bottom) * MM;
+    const sheetH = 297 * MM;
+
+    // Blocks that must not be split across a page: each entry (a job or a
+    // course), and the language table. Sections themselves can span two pages
+    // as long as each entry inside them stays whole.
+    const blocks = [...body.querySelectorAll(".entry, .other-languages")]
+      .filter((el) => !el.closest(".entry .entry") && el.offsetParent);
+
+    // Sections are position:relative (for z-indexing), so an entry's offsetTop
+    // is measured against its section, not the body. Walk the offsetParent
+    // chain to get the y in body coordinates.
+    const absTop = (el) => {
+      let y = 0, cur = el;
+      while (cur && cur !== body) { y += cur.offsetTop; cur = cur.offsetParent; }
+      return y;
+    };
+
+    // Page 1's content area in body coordinates. The body's own padding-top
+    // gives the first page's top margin; usable content on the first sheet ends
+    // where its bottom margin begins.
+    const firstTopPX = firstTop * MM;
+    const topPX = top * MM;
+    const bottomPX = bottom * MM;
+    const seamAdvance = bottomPX + GAP_PX + topPX + pageContent;    // per-break growth of pageBottom
+
+    const sheetTops = [0];                 // body-y of each sheet's top edge
+    let pageBottom = firstTopPX + firstContent;    // body-y where current page's content ends
+
+    const pushDown = (el, extra) => {
+      const prev = parseFloat(getComputedStyle(el).marginTop) || 0;
+      el.dataset.pushed = el.style.marginTop || "";
+      el.style.marginTop = `${prev + extra}px`;
+    };
+
+    for (const el of blocks) {
+      const boxTop = absTop(el);           // live: reflects earlier pushes
+      const h = el.offsetHeight;
+      // Advance to the current page if this block already sits past a break.
+      while (boxTop >= pageBottom - 0.5) {
+        sheetTops.push(pageBottom + bottomPX + GAP_PX);
+        pageBottom += seamAdvance;
+      }
+      if (boxTop + h <= pageBottom + 1) continue;      // fits on this sheet
+      if (h <= pageContent) {
+        // straddles: drop it onto the next sheet, past the grey gap
+        const nextTop = pageBottom + bottomPX + GAP_PX + topPX;
+        pushDown(el, nextTop - boxTop);
+        sheetTops.push(pageBottom + bottomPX + GAP_PX);
+        pageBottom += seamAdvance;
+      } else {
+        // taller than a whole page — let it flow, but count the pages it spans
+        while (boxTop + h > pageBottom + 1) {
+          sheetTops.push(pageBottom + bottomPX + GAP_PX);
+          pageBottom += seamAdvance;
+        }
+      }
+    }
+
+    // Draw a white sheet (with the Europass frame) for each page, and a grey
+    // gap strip at each seam. seamY[i] is where page i's content ended.
+    for (let i = 0; i < sheetTops.length; i++) {
+      const frame = doc.createElement("div");
+      frame.className = "page-frame" + (i === 0 ? " first" : "");
+      frame.setAttribute("aria-hidden", "true");
+      frame.style.top = `${sheetTops[i]}px`;
+      body.appendChild(frame);
+      if (i === 0) continue;
+      // the gap covers the join: from the bottom edge of the previous sheet to
+      // the top edge of this one
+      const prevSheetBottom = sheetTops[i] - GAP_PX;
+      const gap = doc.createElement("div");
+      gap.className = "page-gap";
+      gap.setAttribute("aria-hidden", "true");
+      gap.style.top = `${prevSheetBottom}px`;
+      gap.style.height = `${GAP_PX}px`;
+      gap.innerHTML = `<span class="page-gap-label">Page ${i + 1}</span>`;
+      body.appendChild(gap);
+    }
+
+    const lastTop = sheetTops[sheetTops.length - 1];
+    els.page.style.height = `${Math.ceil(lastTop + sheetH)}px`;
   }
 
   function wirePage(doc) {
@@ -332,8 +515,28 @@
     })();
 
     doc.querySelectorAll("[data-path]").forEach((el) => {
-      el.contentEditable = plainOnly ? "plaintext-only" : "true";
+      const rich = el.dataset.rich === "1";
+      el.contentEditable = (plainOnly && !rich) ? "plaintext-only" : "true";
       el.spellcheck = true;
+    });
+
+    // show the formatting toolbar while the caret is inside a text block
+    doc.addEventListener("selectionchange", positionToolbar);
+    doc.addEventListener("keyup", positionToolbar);
+    doc.addEventListener("mouseup", positionToolbar);
+    doc.addEventListener("scroll", hideToolbar, true);
+
+    doc.querySelectorAll("[data-photo]").forEach((el) => {
+      el.style.cursor = "pointer";
+      el.title = "Click to change the photo";
+      el.addEventListener("click", (e) => {
+        e.stopPropagation();
+        select("personal");
+        requestAnimationFrame(() => {
+          const input = els.inspector.querySelector("#photoInput");
+          if (input) input.click();
+        });
+      });
     });
 
     doc.addEventListener("click", (e) => {
@@ -345,10 +548,14 @@
     doc.addEventListener("input", (e) => {
       const el = e.target.closest("[data-path]");
       if (!el) return;
-      const multiline = el.dataset.multiline === "1";
-      let text = multiline ? el.innerText : el.textContent;
-      if (!multiline) text = text.replace(/\n/g, " ");
-      update(el.dataset.path, text, { render: false });
+      let value;
+      if (el.dataset.rich === "1") {
+        value = cleanRich(el.innerHTML);
+      } else {
+        value = el.textContent.replace(/\n/g, " ");
+      }
+      update(el.dataset.path, value, { render: false });
+      positionToolbar();
     });
 
     doc.addEventListener("focusout", (e) => {
@@ -366,7 +573,7 @@
       e.preventDefault();
       let text = e.clipboardData.getData("text/plain");
       if (el.dataset.multiline !== "1") text = text.replace(/\s*\n\s*/g, " ");
-      doc.execCommand("insertText", false, text);
+      doc.execCommand("insertText", false, text);   // never paste foreign styling
     });
 
     doc.addEventListener("keydown", (e) => {
@@ -375,6 +582,49 @@
       if (!el) return;
       const path = el.dataset.path;
       const bullet = path.match(/^(.*\.description)\.(\d+)$/);
+
+      // Space-bar behaviours from Google Docs.
+      if (e.key === " ") {
+        // Shift+Space → non-breaking space, so words don't split across lines.
+        if (e.shiftKey && !e.ctrlKey && !e.metaKey) {
+          e.preventDefault();
+          const sel = doc.getSelection();
+          if (sel && sel.rangeCount) {
+            const r = sel.getRangeAt(0);
+            r.deleteContents();
+            r.insertNode(doc.createTextNode("\u00a0"));
+            r.collapse(false);
+            el.dispatchEvent(new Event("input", { bubbles: true }));
+          }
+          return;
+        }
+        // Ctrl+Space → clear character formatting on the selection.
+        if ((e.ctrlKey || e.metaKey) && el.dataset.rich === "1") {
+          e.preventDefault();
+          try { doc.execCommand("removeFormat"); } catch {}
+          return;
+        }
+        // "* " or "- " at the start of a description paragraph → convert the
+        // paragraph into a bullet list (only in fields that support bullets).
+        if (!e.shiftKey && !e.ctrlKey && !e.metaKey && path.endsWith(".description")) {
+          const raw = el.textContent;
+          if (/^[*\-]$/.test(raw.trim())) {
+            e.preventDefault();
+            const lines = raw.replace(/^[*\-]\s*/, "").split(/\n/).map((s) => s.trim()).filter(Boolean);
+            commit((cv) => setPath(cv, path, lines.length ? lines : [""]));
+            pendingFocus(`${path}.0`);
+            return;
+          }
+        }
+        // "1. " at the start of a bullet → same (numbered lists aren't a
+        // Europass feature, so we treat them as bullets).
+        if (!e.shiftKey && !e.ctrlKey && !e.metaKey && bullet && el.textContent.trim() === "1.") {
+          e.preventDefault();
+          el.textContent = "";
+          update(path, "", { render: false });
+          return;
+        }
+      }
 
       if (e.key === "Enter" && !e.shiftKey && bullet) {
         e.preventDefault(); // new bullet after this one
@@ -404,6 +654,156 @@
   function pendingFocus(path) {
     clearTimeout(state.renderTimer);
     renderPage(path);
+  }
+
+  // ------------------------------------------------- formatting toolbar --
+
+  /** Keep only the formatting the CV template allows. */
+  function cleanRich(html) {
+    const box = document.createElement("div");
+    box.innerHTML = html;
+    const keep = { B: 1, STRONG: 1, I: 1, EM: 1, U: 1, S: 1, BR: 1 };
+    const walk = (node) => {
+      [...node.childNodes].forEach((child) => {
+        if (child.nodeType === 1) {
+          walk(child);
+          if (!keep[child.tagName]) child.replaceWith(...child.childNodes);
+          else [...child.attributes].forEach((a) => child.removeAttribute(a.name));
+        }
+      });
+    };
+    walk(box);
+    return box.innerHTML.replace(/<div>/g, "<br>").replace(/<\/div>/g, "").trim();
+  }
+
+  const TOOLS = [
+    { cmd: "bold", label: "B", title: "Bold (Ctrl+B)", style: "font-weight:700" },
+    { cmd: "italic", label: "I", title: "Italic (Ctrl+I)", style: "font-style:italic" },
+    { cmd: "underline", label: "U", title: "Underline (Ctrl+U)", style: "text-decoration:underline" },
+    { sep: true },
+    { align: "left", label: "⯇", title: "Align left" },
+    { align: "center", label: "≡", title: "Centre" },
+    { align: "right", label: "⯈", title: "Align right" },
+    { align: "justify", label: "☰", title: "Justify" },
+    { sep: true },
+    { action: "bullets", label: "• List", title: "Switch between bullet points and a paragraph" },
+    { action: "clear", label: "Clear", title: "Remove formatting" },
+  ];
+
+  let toolbarEl = null;
+  let lastRange = null;       // the caret inside the page, kept while the toolbar is clicked
+
+  function buildToolbar() {
+    toolbarEl = document.createElement("div");
+    toolbarEl.className = "format-bar";
+    toolbarEl.hidden = true;
+    toolbarEl.innerHTML = TOOLS.map((t) => t.sep
+      ? '<span class="fb-sep"></span>'
+      : `<button type="button" data-${t.cmd ? "cmd" : t.align ? "align" : "action"}="${t.cmd || t.align || t.action}" title="${esc(t.title)}"${t.style ? ` style="${t.style}"` : ""}>${t.label}</button>`
+    ).join("");
+    document.body.appendChild(toolbarEl);
+
+    toolbarEl.addEventListener("mousedown", (e) => e.preventDefault());   // keep the caret
+    toolbarEl.addEventListener("click", (e) => {
+      const b = e.target.closest("button");
+      if (!b) return;
+      const doc = els.page.contentDocument;
+      const el = restoreCaret();
+      if (!el) return;
+      if (b.dataset.cmd) {
+        doc.execCommand(b.dataset.cmd, false, null);
+        update(el.dataset.path, cleanRich(el.innerHTML), { render: false });
+      } else if (b.dataset.align) {
+        const path = el.dataset.path;
+        const current = (state.cv.design && state.cv.design.block_align || {})[path];
+        commit((cv) => {
+          cv.design.block_align = Object.assign({}, cv.design.block_align);
+          if (current === b.dataset.align) delete cv.design.block_align[path];
+          else cv.design.block_align[path] = b.dataset.align;
+        }, { inspector: false });
+      } else if (b.dataset.action === "clear") {
+        const text = el.textContent;
+        el.textContent = text;
+        update(el.dataset.path, text, { render: false });
+      } else if (b.dataset.action === "bullets") {
+        const m = el.dataset.path.match(/^(.*\.description)(?:\.\d+)?$/);
+        if (!m) { toast("Bullet points are only available in a job or course description."); return; }
+        const listPath = m[1];
+        commit((cv) => {
+          const v = getPath(cv, listPath);
+          if (Array.isArray(v)) setPath(cv, listPath, v.join("\n"));
+          else setPath(cv, listPath, String(v || "").split(/<br\s*\/?>|\n/).map((x) => x.trim()).filter(Boolean));
+        });
+      }
+      updateToolbarState();
+    });
+  }
+
+  /** Put the caret back where it was, so a toolbar click still knows the target. */
+  function restoreCaret() {
+    const doc = els.page.contentDocument;
+    if (!doc || !lastRange) return null;
+    const el = lastRange.commonAncestorContainer.parentElement
+      ? lastRange.commonAncestorContainer.parentElement.closest("[data-path]")
+      : null;
+    if (!el) return null;
+    els.page.contentWindow.focus();     // execCommand only works on a focused document
+    el.focus();
+    const sel = doc.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(lastRange);
+    return el;
+  }
+
+  function currentBlock() {
+    const doc = els.page.contentDocument;
+    if (!doc) return null;
+    const active = doc.activeElement && doc.activeElement.closest && doc.activeElement.closest("[data-path]");
+    if (active) return active;
+    if (!lastRange) return null;
+    const node = lastRange.commonAncestorContainer;
+    const parent = node.nodeType === 1 ? node : node.parentElement;
+    return parent ? parent.closest("[data-path]") : null;
+  }
+
+  function updateToolbarState() {
+    const doc = els.page.contentDocument;
+    if (!doc || !toolbarEl) return;
+    const el = currentBlock();
+    const align = el ? (state.cv.design && state.cv.design.block_align || {})[el.dataset.path] : null;
+    $$("button", toolbarEl).forEach((b) => {
+      let on = false;
+      if (b.dataset.cmd) { try { on = doc.queryCommandState(b.dataset.cmd); } catch { on = false; } }
+      if (b.dataset.align) on = align === b.dataset.align;
+      b.classList.toggle("is-on", on);
+    });
+    const rich = el && el.dataset.rich === "1";
+    $$("button[data-cmd], button[data-action=clear]", toolbarEl).forEach((b) => { b.disabled = !rich; });
+  }
+
+  function hideToolbar() { if (toolbarEl) toolbarEl.hidden = true; }
+
+  function positionToolbar() {
+    if (!toolbarEl) return;      // toolbar disabled, nothing to position
+    const doc = els.page.contentDocument;
+    const el = currentBlock();
+    if (!el) { hideToolbar(); return; }
+    const sel = doc.getSelection();
+    if (sel && sel.rangeCount && el.contains(sel.getRangeAt(0).commonAncestorContainer)) {
+      lastRange = sel.getRangeAt(0).cloneRange();
+    }
+    const frame = els.page.getBoundingClientRect();
+    const box = el.getBoundingClientRect();
+    const scale = frame.width / els.page.offsetWidth;
+    toolbarEl.hidden = false;
+    const width = toolbarEl.offsetWidth || 320;
+    let left = frame.left + (box.left + box.width / 2) * scale - width / 2;
+    left = Math.max(12, Math.min(left, window.innerWidth - width - 12));
+    let topY = frame.top + box.top * scale - toolbarEl.offsetHeight - 8;
+    if (topY < 64) topY = frame.top + (box.bottom) * scale + 8;
+    toolbarEl.style.left = `${Math.round(left)}px`;
+    toolbarEl.style.top = `${Math.round(topY)}px`;
+    updateToolbarState();
   }
 
   function highlightSelection(scroll) {
@@ -445,7 +845,8 @@
 
     els.sectionList.innerHTML = sectionOrder().map((key) => {
       const isHidden = hidden.has(key);
-      const canAdd = key === "work_experience" || key === "education" || key.startsWith("custom:");
+      const canAdd = key === "work_experience" || key === "education"
+        || TYPED_SECTIONS[key] || key.startsWith("custom:");
       const current = state.selected && (state.selected === sectionSelectKey(key) || isInside(state.selected, key));
       return `
         <li draggable="true" data-key="${esc(key)}">
@@ -462,7 +863,7 @@
   }
 
   function isInside(selected, key) {
-    if (key === "work_experience" || key === "education") return selected.startsWith(`${key}.`);
+    if (key === "work_experience" || key === "education" || TYPED_SECTIONS[key]) return selected.startsWith(`${key}.`);
     if (key.startsWith("custom:")) {
       const i = customSections().findIndex((s) => `custom:${s.id}` === key);
       return selected === key || selected.startsWith(`additional_sections.${i}.`);
@@ -481,6 +882,10 @@
       commit((cv) => {
         (cv.education ||= []).push({ title: "Qualification name", organisation: "School or university", city: "", country: "", start: thisMonth(), end: null });
       }, { select: `education.${n}` });
+    } else if (TYPED_SECTIONS[key]) {
+      const n = (state.cv[key] || []).length;
+      commit((cv) => { (cv[key] ||= []).push({ ...TYPED_SECTIONS[key].blank }); },
+        { select: `${key}.${n}` });
     } else if (key.startsWith("custom:")) {
       const i = customSections().findIndex((s) => `custom:${s.id}` === key);
       const n = (customSections()[i].items || []).length;
@@ -575,6 +980,8 @@
       font.innerHTML = Object.entries(state.meta.fonts).map(([k, label]) => `<option value="${esc(k)}">${esc(label)}</option>`).join("");
     }
     font.value = d.font;
+    const tpl = $("#dTemplate");
+    if (tpl) tpl.value = d.template || "template1";
 
     $("#dSwatches").innerHTML = SWATCHES.map(([hex, name]) =>
       `<button class="swatch${d.accent.toLowerCase() === hex ? " is-active" : ""}" style="background:${hex}" data-color="${hex}" title="${name}" aria-label="${name}"></button>`
@@ -587,6 +994,14 @@
     $("#dMarginOut").textContent = `${d.margin_mm} mm`;
     $$("#dPhoto button").forEach((b) => b.classList.toggle("is-active", b.dataset.v === d.photo_shape));
     $("#dPages").checked = !!d.page_numbers;
+    $("#dLine").value = d.line_height;
+    $("#dLineOut").textContent = Number(d.line_height).toFixed(2);
+    $("#dSection").value = d.section_gap;
+    $("#dSectionOut").textContent = `${d.section_gap} mm`;
+    $("#dEntry").value = d.entry_gap;
+    $("#dEntryOut").textContent = `${d.entry_gap} mm`;
+    $$("#dLangLayout button").forEach((b) => b.classList.toggle("is-active", b.dataset.v === d.languages_layout));
+    $("#dFrame").checked = d.frame !== false;
   }
 
   function wireDesign() {
@@ -595,6 +1010,11 @@
       else commit((cv) => { cv.design[key] = value; });
     };
     $("#dFont").addEventListener("change", (e) => setDesign("font", e.target.value));
+    $("#dTemplate")?.addEventListener("change", (e) => {
+      // Each template has its own page margin, so clear the override and let
+      // the template decide unless the person has moved the slider since.
+      commit((cv) => { cv.design.template = e.target.value; cv.design.margin_mm = null; });
+    });
     $("#dSwatches").addEventListener("click", (e) => {
       const sw = e.target.closest("[data-color]");
       if (sw) setDesign("accent", sw.dataset.color);
@@ -617,6 +1037,18 @@
       if (b) setDesign("photo_shape", b.dataset.v);
     });
     $("#dPages").addEventListener("change", (e) => setDesign("page_numbers", e.target.checked));
+    const slider = (id, key, out, fmt) => $(id).addEventListener("input", (e) => {
+      update(`design.${key}`, Number(e.target.value));
+      $(out).textContent = fmt(e.target.value);
+    });
+    slider("#dLine", "line_height", "#dLineOut", (v) => Number(v).toFixed(2));
+    slider("#dSection", "section_gap", "#dSectionOut", (v) => `${v} mm`);
+    slider("#dEntry", "entry_gap", "#dEntryOut", (v) => `${v} mm`);
+    $("#dLangLayout").addEventListener("click", (e) => {
+      const b = e.target.closest("[data-v]");
+      if (b) setDesign("languages_layout", b.dataset.v);
+    });
+    $("#dFrame").addEventListener("change", (e) => setDesign("frame", e.target.checked));
     $("#dReset").addEventListener("click", () => commit((cv) => {
       const keep = { section_order: cv.design.section_order, hidden_sections: cv.design.hidden_sections };
       cv.design = Object.assign(clone(state.meta.design), keep);
@@ -639,6 +1071,59 @@
     if (list && Array.isArray(value)) value = value.join("\n");
     return `<label class="field"><span>${esc(label)}</span>
       <textarea rows="${rows}" data-bind="${esc(path)}"${list ? ' data-list="1"' : ""} placeholder="${esc(placeholder)}">${esc(value)}</textarea></label>`;
+  }
+
+  /**
+   * A list the person can grow: "Another email", "Another website"...
+   * Europass allows several of each, so one box per value plus an Add button.
+   */
+  function extraRows(path, label, type, placeholder) {
+    const values = getPath(state.cv, path) || [];
+    const rows = values.map((v, i) => `
+      <div class="repeat-row">
+        <input type="${type}" value="${esc(v)}" placeholder="${esc(placeholder)}"
+               data-list-path="${path}" data-list-index="${i}">
+        <button class="btn small btn-danger" data-list-remove="${path}" data-i="${i}"
+                title="Remove">&times;</button>
+      </div>`).join("");
+    return `<div class="repeat-group">${rows}
+      <button class="btn small" data-list-add="${path}">+ ${esc(label)}</button></div>`;
+  }
+
+  const SOCIAL_TYPES = ["LinkedIn", "Facebook", "X", "Instagram", "YouTube",
+                        "Pinterest", "Tumblr", "Other"];
+  const IM_TYPES = ["Skype", "WhatsApp Messenger", "WeChat", "Line", "Viber", "Other"];
+
+  function socialRows() {
+    const list = getPath(state.cv, "personal.social_media") || [];
+    const rows = list.map((s, i) => `
+      <div class="repeat-row">
+        <select data-social="type" data-i="${i}">
+          ${SOCIAL_TYPES.map((t) => `<option${s.type === t ? " selected" : ""}>${t}</option>`).join("")}
+        </select>
+        <input value="${esc(s.url || "")}" placeholder="username or full link"
+               data-social="url" data-i="${i}">
+        <button class="btn small btn-danger" data-list-remove="personal.social_media"
+                data-i="${i}" title="Remove">&times;</button>
+      </div>`).join("");
+    return `<div class="subhead-small">Social media</div><div class="repeat-group">${rows}
+      <button class="btn small" data-list-add="personal.social_media">+ Add social media</button></div>`;
+  }
+
+  function imRows() {
+    const list = getPath(state.cv, "personal.instant_messaging") || [];
+    const rows = list.map((s, i) => `
+      <div class="repeat-row">
+        <select data-im="type" data-i="${i}">
+          ${IM_TYPES.map((t) => `<option${s.type === t ? " selected" : ""}>${t}</option>`).join("")}
+        </select>
+        <input value="${esc(s.value || "")}" placeholder="handle or number"
+               data-im="value" data-i="${i}">
+        <button class="btn small btn-danger" data-list-remove="personal.instant_messaging"
+                data-i="${i}" title="Remove">&times;</button>
+      </div>`).join("");
+    return `<div class="subhead-small">Instant messaging</div><div class="repeat-group">${rows}
+      <button class="btn small" data-list-add="personal.instant_messaging">+ Add instant messaging</button></div>`;
   }
 
   function selectBox(label, path, options) {
@@ -680,6 +1165,7 @@
           ${p.photo ? `<img src="${esc(p.photo)}" alt="Photo">` : `<div class="ph">No photo</div>`}
           <div class="btns">
             <button class="btn small" data-photo="pick">${p.photo ? "Change photo" : "Add photo"}</button>
+            ${p.photo ? `<button class="btn small" data-photo="adjust">Adjust</button>` : ""}
             ${p.photo ? `<button class="btn small btn-danger" data-photo="remove">Remove</button>` : ""}
           </div>
           <input type="file" accept="image/*" id="photoInput" hidden>
@@ -691,16 +1177,30 @@
         </div>
         <label class="field"><span>Nationality</span><input type="text" data-nationality value="${esc(nat)}" placeholder="e.g. Indian, Italian"></label>
         <p class="help">Separate several nationalities with commas.</p>
+        <div class="field-row">
+          ${selectBox("Document", "personal.document_type", [["Passport", "Passport"], ["ID", "ID card"], ["Residence permit", "Residence permit"]])}
+          ${input("Passport / ID number", "personal.passport")}
+        </div>
+        <div class="field-row">
+          ${input("Place of birth - city", "personal.place_of_birth.city")}
+          ${input("Place of birth - country", "personal.place_of_birth.country")}
+        </div>
         <div class="subhead">Contact</div>
         <div class="field-row-3">
           ${input("Code", "personal.phone.country_dialing", { placeholder: "91" })}
           ${input("Number", "personal.phone.number", { type: "tel" })}
           ${selectBox("Type", "personal.phone.type", [["Mobile", "Mobile"], ["Home", "Home"], ["Work", "Work"], ["", "—"]])}
         </div>
+        ${extraRows("personal.extra_phones", "Another phone", "tel", "+39 320 000 0000")}
         ${input("Email address", "personal.email", { type: "email" })}
+        ${extraRows("personal.extra_emails", "Another email", "email", "name@example.com")}
         ${input("Website", "personal.website", { type: "url", placeholder: "https://" })}
+        ${extraRows("personal.extra_websites", "Another website", "url", "https://")}
+        ${socialRows()}
+        ${imRows()}
         <div class="subhead">Address</div>
-        ${input("Street and number", "personal.address.street")}
+        ${input("Address line 1", "personal.address.street")}
+        ${input("Address line 2", "personal.address.street2", { placeholder: "Apartment, suite, floor" })}
         <div class="field-row">${input("Postal code", "personal.address.postal_code")}${input("City", "personal.address.city")}</div>
         <div class="field-row">
           ${input("Country", "personal.address.country")}
@@ -782,6 +1282,30 @@
         `<label class="chip"><input type="checkbox" data-licence="${c}"${have.has(c) ? " checked" : ""}><span>${c}</span></label>`).join("")}</div>`;
     }],
 
+    // One section panel and one entry panel cover all eleven typed sections.
+    [new RegExp(`^(${TYPED_KEYS.join("|")})$`), (m) => {
+      const key = m[1], spec = TYPED_SECTIONS[key];
+      const n = (state.cv[key] || []).length;
+      return head(spec.label, `${n} ${n === 1 ? "entry" : "entries"}`) +
+        `<button class="btn full" data-add-entry="${key}">Add an entry</button>` +
+        (n ? "" : `<p class="help">Nothing here yet. An empty section is left off the CV.</p>`);
+    }],
+
+    [new RegExp(`^(${TYPED_KEYS.join("|")})\\.(\\d+)$`), (m) => {
+      const key = m[1], i = Number(m[2]), spec = TYPED_SECTIONS[key];
+      const list = state.cv[key] || [];
+      if (!list[i]) return null;
+      const base = `${key}.${i}`;
+      const fields = spec.fields.map((f) => {
+        const label = FIELD_LABELS[f] || f;
+        if (f === "description") return textarea(label, `${base}.description`, { rows: 5, list: true });
+        if (f === "start" || f === "end") return input(label, `${base}.${f}`, { type: "month" });
+        return input(label, `${base}.${f}`);
+      }).join("");
+      return head(spec.label, `${i + 1} of ${list.length}`) +
+        entryActions(key, i, list.length) + fields;
+    }],
+
     [/^custom:(.+)$/, (m) => {
       const i = customSections().findIndex((s) => s.id === m[1]);
       if (i < 0) return null;
@@ -837,6 +1361,27 @@
 
     box.addEventListener("input", (e) => {
       const t = e.target;
+      if (t.dataset.listPath) {                       // extra phone / email / website
+        const path = t.dataset.listPath, i = Number(t.dataset.listIndex);
+        commit((cv) => {
+          const list = (getPath(cv, path) || []).slice();
+          list[i] = t.value;
+          setPath(cv, path, list);
+        }, { inspector: false });
+        return;
+      }
+      if (t.dataset.social || t.dataset.im) {          // social media / messaging
+        const path = t.dataset.social ? "personal.social_media" : "personal.instant_messaging";
+        const key = t.dataset.social || t.dataset.im;
+        const i = Number(t.dataset.i);
+        commit((cv) => {
+          const list = (getPath(cv, path) || []).map((x) => ({ ...x }));
+          if (!list[i]) list[i] = {};
+          list[i][key] = t.value;
+          setPath(cv, path, list);
+        }, { inspector: false });
+        return;
+      }
       if (t.dataset.bind) {
         let value = t.value;
         if (t.dataset.list) value = value.split("\n").map((s) => s.trim()).filter((s, i, arr) => s || i < arr.length - 1);
@@ -903,6 +1448,17 @@
         toast("Section deleted. Press Ctrl+Z to undo.");
       } else if (b.dataset.photo === "pick") {
         $("#photoInput", box).click();
+      } else if (b.dataset.listAdd) {
+        const path = b.dataset.listAdd;
+        const blank = path.endsWith("social_media") ? { type: "LinkedIn", url: "" }
+                    : path.endsWith("instant_messaging") ? { type: "WhatsApp Messenger", value: "" }
+                    : "";
+        commit((cv) => setPath(cv, path, [...(getPath(cv, path) || []), blank]));
+      } else if (b.dataset.listRemove) {
+        const path = b.dataset.listRemove, i = Number(b.dataset.i);
+        commit((cv) => setPath(cv, path, (getPath(cv, path) || []).filter((_, n) => n !== i)));
+      } else if (b.dataset.photo === "adjust") {
+        editExistingPhoto();
       } else if (b.dataset.photo === "remove") {
         commit((cv) => { cv.personal.photo = null; });
       }
@@ -931,25 +1487,181 @@
     const reader = new FileReader();
     reader.onload = () => {
       const img = new Image();
-      img.onload = () => {
-        const max = 600;
-        const scale = Math.min(1, max / Math.max(img.width, img.height));
-        const c = document.createElement("canvas");
-        c.width = Math.round(img.width * scale);
-        c.height = Math.round(img.height * scale);
-        c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
-        const data = c.toDataURL("image/jpeg", 0.86);
-        commit((cv) => { cv.personal.photo = data; });
-      };
+      img.onload = () => openPhotoEditor(img);
       img.onerror = () => toast("That image could not be read. Try a JPG or PNG file.", true);
       img.src = reader.result;
     };
     reader.readAsDataURL(file);
   }
 
+  /**
+   * Crop, zoom and reposition a photo before it goes on the CV.
+   *
+   * Students send holiday snaps and group photos; the CV needs a head-and-
+   * shoulders portrait. The dialog shows the picture behind a round window
+   * (the shape the CV uses) which the person drags and zooms to frame the face.
+   */
+  function openPhotoEditor(img, existing) {
+    const OUT = 600;                        // saved at 600x600, plenty for print
+    const BOX = 320;                        // on-screen size of the crop window
+    let zoom = 1, minZoom = 1, x = 0, y = 0, angle = 0;   // angle in degrees
+
+    const dlg = document.createElement("dialog");
+    dlg.className = "photo-dialog";
+    dlg.innerHTML = `
+      <h2>Adjust the photo</h2>
+      <p class="photo-hint">Drag the picture to move it, and use the slider to zoom.
+        The circle shows what appears on the CV.</p>
+      <div class="photo-stage" style="width:${BOX}px;height:${BOX}px">
+        <canvas width="${BOX}" height="${BOX}"></canvas>
+        <div class="photo-mask" aria-hidden="true"></div>
+      </div>
+      <label class="field photo-zoom"><span>Zoom</span>
+        <input type="range" id="photoZoom" min="1" max="4" step="0.01" value="1"></label>
+      <div class="photo-rotate">
+        <span>Rotate</span>
+        <button class="btn small" data-photo-rot="-90" type="button" title="Turn left">⟲ Left</button>
+        <button class="btn small" data-photo-rot="90" type="button" title="Turn right">⟳ Right</button>
+        <button class="btn small" data-photo-rot="-1" type="button" title="Nudge left">−1°</button>
+        <button class="btn small" data-photo-rot="1" type="button" title="Nudge right">+1°</button>
+      </div>
+      <div class="photo-actions">
+        <button class="btn" data-photo-cancel type="button">Cancel</button>
+        <button class="btn" data-photo-reset type="button">Reset</button>
+        <button class="btn btn-primary" data-photo-save type="button">Use this photo</button>
+      </div>`;
+    document.body.appendChild(dlg);
+
+    const canvas = dlg.querySelector("canvas");
+    const ctx = canvas.getContext("2d");
+    const zoomInput = dlg.querySelector("#photoZoom");
+
+    /** Width and height of the picture once turned by `angle`. */
+    const turned = () => {
+      const quarter = Math.abs(angle % 180) === 90;
+      return quarter ? { w: img.height, h: img.width } : { w: img.width, h: img.height };
+    };
+
+    const reset = () => {
+      angle = 0;
+      minZoom = Math.max(BOX / img.width, BOX / img.height);
+      zoom = minZoom;
+      zoomInput.min = String(minZoom);
+      zoomInput.max = String(minZoom * 4);
+      zoomInput.step = String(minZoom / 100);
+      zoomInput.value = String(zoom);
+      const t = turned();
+      x = (BOX - t.w * zoom) / 2;            // start centred
+      y = (BOX - t.h * zoom) / 2;
+      draw();
+    };
+
+    /** Keep the picture covering the whole window, never letting a gap show. */
+    const clamp = () => {
+      const t = turned();
+      const w = t.w * zoom, h = t.h * zoom;
+      x = w <= BOX ? (BOX - w) / 2 : Math.min(0, Math.max(BOX - w, x));
+      y = h <= BOX ? (BOX - h) / 2 : Math.min(0, Math.max(BOX - h, y));
+    };
+
+    /** Paint the picture into a square canvas, turned by `angle`. */
+    function paint(target, size) {
+      const c = target.getContext("2d");
+      const k = size / BOX;                       // 1 on screen, larger when saving
+      const t = turned();
+      c.clearRect(0, 0, size, size);
+      // JPEG has no transparency, so anything not covered would save as black
+      c.fillStyle = "#ffffff";
+      c.fillRect(0, 0, size, size);
+      c.save();
+      // move to the middle of where the picture sits, turn, then draw centred
+      c.translate((x + t.w * zoom / 2) * k, (y + t.h * zoom / 2) * k);
+      c.rotate(angle * Math.PI / 180);
+      c.drawImage(img, -img.width * zoom * k / 2, -img.height * zoom * k / 2,
+                  img.width * zoom * k, img.height * zoom * k);
+      c.restore();
+    }
+
+    function draw() {
+      clamp();
+      paint(canvas, BOX);
+    }
+
+    let dragging = false, startX = 0, startY = 0;
+    canvas.addEventListener("pointerdown", (e) => {
+      dragging = true; startX = e.clientX - x; startY = e.clientY - y;
+      canvas.setPointerCapture(e.pointerId);
+    });
+    canvas.addEventListener("pointermove", (e) => {
+      if (!dragging) return;
+      x = e.clientX - startX; y = e.clientY - startY;
+      draw();
+    });
+    canvas.addEventListener("pointerup", () => { dragging = false; });
+
+    zoomInput.addEventListener("input", () => {
+      const next = Number(zoomInput.value);
+      const cx = BOX / 2, cy = BOX / 2;            // zoom about the centre
+      x = cx - (cx - x) * (next / zoom);
+      y = cy - (cy - y) * (next / zoom);
+      zoom = next;
+      draw();
+    });
+
+    dlg.addEventListener("click", (e) => {
+      const b = e.target.closest("button");
+      if (!b) return;
+      if (b.dataset.photoRot) {
+        angle = (angle + Number(b.dataset.photoRot) + 360) % 360;
+        // A quarter turn swaps the picture's width and height, so the old
+        // x/y no longer cover the frame: rescale and centre on the new bounds.
+        const t = turned();
+        minZoom = Math.max(BOX / t.w, BOX / t.h);
+        if (zoom < minZoom) zoom = minZoom;
+        zoomInput.min = String(minZoom);
+        zoomInput.max = String(minZoom * 4);
+        zoomInput.step = String(minZoom / 100);
+        zoomInput.value = String(zoom);
+        x = (BOX - t.w * zoom) / 2;
+        y = (BOX - t.h * zoom) / 2;
+        draw();
+        return;
+      }
+      if ("photoReset" in b.dataset) { reset(); return; }
+      if ("photoCancel" in b.dataset) { dlg.close(); dlg.remove(); return; }
+      if ("photoSave" in b.dataset) {
+        const out = document.createElement("canvas");
+        out.width = out.height = OUT;
+        paint(out, OUT);                            // same framing, at print size
+        const data = out.toDataURL("image/jpeg", 0.88);
+        commit((cv) => { cv.personal.photo = data; });
+        dlg.close(); dlg.remove();
+        toast("Photo updated.");
+      }
+    });
+    dlg.addEventListener("close", () => dlg.remove());
+
+    reset();
+    dlg.showModal();
+  }
+
+  /** Re-open the editor for the photo already on the CV. */
+  function editExistingPhoto() {
+    const src = (state.cv.personal || {}).photo;
+    if (!src) { toast("Add a photo first."); return; }
+    const img = new Image();
+    img.onload = () => openPhotoEditor(img);
+    img.onerror = () => toast("That photo could not be opened.", true);
+    img.src = src;
+  }
+
   // ----------------------------------------------------- import / export --
 
   async function openFile(file) {
+    if (!confirm(`Replace this CV's content with ${file.name}? You can undo this with Ctrl+Z.`)) {
+      els.fileInput.value = "";
+      return;
+    }
     const form = new FormData();
     form.append("file", file);
     document.body.classList.add("busy");
@@ -1034,7 +1746,7 @@
     const k = e.key.toLowerCase();
     if (k === "z" && !e.shiftKey && !inForm) { e.preventDefault(); undo(); return true; }
     if (((k === "z" && e.shiftKey) || k === "y") && !inForm) { e.preventDefault(); redo(); return true; }
-    if (k === "s") { e.preventDefault(); download("json"); return true; }
+    if (k === "s") { e.preventDefault(); saveNow(); return true; }
     return false;
   }
 
@@ -1057,11 +1769,6 @@
     $("#fileMenu").addEventListener("click", async (e) => {
       const action = e.target.closest("[data-action]")?.dataset.action;
       if (action === "open") els.fileInput.click();
-      if (action === "sample" || action === "blank") {
-        if (!confirm("Replace the CV you are editing? You can undo this with Ctrl+Z.")) return;
-        const cv = await (await api(`/api/${action}`)).json();
-        commit((c) => { Object.keys(c).forEach((k) => delete c[k]); Object.assign(c, cv); }, { select: "personal" });
-      }
     });
     $("#downloadMenu").addEventListener("click", (e) => {
       const fmt = e.target.closest("[data-fmt]")?.dataset.fmt;
@@ -1108,22 +1815,55 @@
     });
 
     window.addEventListener("resize", () => { if (window.innerWidth < 900) fitZoom(); });
+
+    $("#statusSelect").addEventListener("change", async (e) => {
+      const status = e.target.value;
+      e.target.dataset.v = status;
+      try {
+        applyRecord(await (await api(`/api/cvs/${CV_ID}`, {
+          method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }),
+        })).json());
+        toast(`Marked as ${e.target.selectedOptions[0].text.toLowerCase()}.`);
+      } catch (err) { toast(err.message, true); }
+    });
+
+    $("#checks").addEventListener("click", async (e) => {
+      if (e.target.id !== "clearChecks") return;
+      try {
+        applyRecord(await (await api(`/api/cvs/${CV_ID}`, {
+          method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ warnings: [] }),
+        })).json());
+      } catch (err) { toast(err.message, true); }
+    });
+
+    window.addEventListener("beforeunload", (e) => {
+      if (state.unsaved) { saveNow(); e.preventDefault(); e.returnValue = ""; }
+    });
+    $(".back-link").addEventListener("click", async (e) => {
+      if (!state.unsaved) return;
+      e.preventDefault();
+      await saveNow();
+      location.href = "/";
+    });
   }
 
   // ---------------------------------------------------------------- start --
 
   async function start() {
+    if (!CV_ID) { location.href = "/"; return; }
     try {
       state.meta = await (await api("/api/meta")).json();
-      let cv = null;
-      try { cv = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null"); } catch { cv = null; }
-      if (!cv || !cv.personal) cv = await (await api("/api/sample")).json();
-      state.cv = cv;
+      const record = await (await api(`/api/cvs/${CV_ID}`)).json();
+      state.cv = record.cv;
+      delete record.cv;
+      delete record.original;
+      applyRecord(record);
     } catch (err) {
-      els.inspector.innerHTML = `<div class="empty-state"><strong>The editor could not start</strong>${esc(err.message)}. Check that the server is running (python app.py) and reload the page.</div>`;
+      els.inspector.innerHTML = `<div class="empty-state"><strong>The editor could not start</strong>${esc(err.message)}. Check that the server is running (python app.py), then reload the page or go back to the list of CVs.</div>`;
       return;
     }
 
+    // the floating format toolbar is off; Ctrl+B / I / U still work
     wireSectionList();
     wireDesign();
     wireInspector();
@@ -1136,7 +1876,7 @@
     renderInspector();
     fitZoom();
     await renderPage();
-    els.saveState.textContent = "Saved on this computer";
+    setSaveState("All changes saved");
   }
 
   start();

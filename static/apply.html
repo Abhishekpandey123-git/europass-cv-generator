@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Student information form</title>
+  <link rel="icon" href="/static/favicon.ico" sizes="any">
+  <style>
+    :root { --eu:#0c56a5; --ink:#1d2a3a; --soft:#5a6672; --line:#d4d9de; --bg:#f4f6f8; --err:#b91c1c; }
+    * { box-sizing: border-box; }
+    body { margin:0; background:var(--bg); color:var(--ink);
+           font:15px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif; }
+    header { background:var(--eu); color:#fff; padding:18px 20px; }
+    header h1 { margin:0; font-size:19px; }
+    header p { margin:4px 0 0; opacity:.9; font-size:14px; }
+    .wrap { max-width:720px; margin:0 auto; padding:20px 16px 60px; }
+    fieldset { background:#fff; border:1px solid var(--line); border-radius:8px;
+               margin:0 0 16px; padding:18px; }
+    legend { font-weight:600; color:var(--eu); padding:0 6px; }
+    label { display:block; font-size:13px; font-weight:600; margin:12px 0 4px; }
+    label .opt { font-weight:400; color:var(--soft); }
+    input, select, textarea { width:100%; padding:10px; border:1px solid #b9c2cb;
+           border-radius:5px; font:inherit; font-size:15px; background:#fff; }
+    input:focus, select:focus, textarea:focus { outline:none; border-color:var(--eu);
+           box-shadow:0 0 0 3px rgba(12,86,165,.14); }
+    textarea { min-height:90px; resize:vertical; }
+    .row { display:grid; gap:12px; grid-template-columns:1fr 1fr; }
+    .row3 { display:grid; gap:12px; grid-template-columns:1fr 1fr 1fr; }
+    @media (max-width:560px) { .row, .row3 { grid-template-columns:1fr; } }
+    .entry { border:1px solid var(--line); border-radius:6px; padding:14px;
+             margin-bottom:12px; background:#fcfdfe; position:relative; }
+    .add { background:none; border:0; color:var(--eu); font-weight:600;
+           cursor:pointer; padding:8px 0; font:inherit; }
+    .rm { position:absolute; top:10px; right:10px; background:none; border:0;
+          color:var(--err); cursor:pointer; font-size:13px; font:inherit; }
+    .hint { font-size:13px; color:var(--soft); margin:2px 0 10px; }
+    .submit { width:100%; padding:14px; background:var(--eu); color:#fff; border:0;
+              border-radius:6px; font-size:16px; font-weight:600; cursor:pointer; }
+    .submit:disabled { opacity:.6; cursor:default; }
+    .done { background:#fff; border:1px solid var(--line); border-radius:8px;
+            padding:40px 24px; text-align:center; }
+    .done h2 { color:var(--eu); margin:0 0 8px; }
+    .error { color:var(--err); font-size:14px; margin-top:10px; }
+    .req { color:var(--err); }
+  </style>
+</head>
+<body>
+<header>
+  <h1>Student information form</h1>
+  <p>Fill this in and we will prepare your Europass CV. It takes about ten minutes.</p>
+</header>
+
+<div class="wrap" id="wrap">
+  <form id="form">
+    <fieldset>
+      <legend>About you</legend>
+      <div class="row">
+        <div><label>First name(s) <span class="req">*</span></label><input name="first_name" required></div>
+        <div><label>Last name(s) <span class="req">*</span></label><input name="last_name" required></div>
+      </div>
+      <div class="row">
+        <div><label>Date of birth</label><input name="date_of_birth" placeholder="DD/MM/YYYY"></div>
+        <div><label>Gender</label>
+          <select name="gender"><option value="">—</option><option>Male</option><option>Female</option><option>Other</option></select>
+        </div>
+      </div>
+      <div class="row">
+        <div><label>Nationality</label><input name="nationality" placeholder="Indian"></div>
+        <div><label>Passport number <span class="opt">(for our checks only)</span></label><input name="passport"></div>
+      </div>
+      <label>About you <span class="opt">— a short paragraph for the top of the CV</span></label>
+      <textarea name="about" placeholder="Final-year computer science student applying for a master's in Italy..."></textarea>
+    </fieldset>
+
+    <fieldset>
+      <legend>Contact</legend>
+      <div class="row">
+        <div><label>Email <span class="req">*</span></label><input type="email" name="email" required></div>
+        <div><label>Phone <span class="opt">— with country code</span></label><input name="phone" placeholder="+91 98765 43210"></div>
+      </div>
+      <label>Website or LinkedIn</label><input name="website" placeholder="https://linkedin.com/in/...">
+      <div class="row">
+        <div><label>Street and number</label><input name="street"></div>
+        <div><label>City</label><input name="city"></div>
+      </div>
+      <div class="row">
+        <div><label>Postal code</label><input name="pincode"></div>
+        <div><label>Country</label><input name="country" placeholder="India"></div>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Education</legend>
+      <p class="hint">Most recent first. Add one block per qualification.</p>
+      <div id="education"></div>
+      <button type="button" class="add" id="add-edu">+ Add a qualification</button>
+    </fieldset>
+
+    <fieldset>
+      <legend>Work experience and internships</legend>
+      <p class="hint">Include internships, part-time work and volunteering.</p>
+      <div id="work"></div>
+      <button type="button" class="add" id="add-work">+ Add a role</button>
+    </fieldset>
+
+    <fieldset>
+      <legend>Languages</legend>
+      <label>Mother tongue</label><input name="mother_tongue" placeholder="Hindi">
+      <div id="languages"></div>
+      <button type="button" class="add" id="add-lang">+ Add another language</button>
+    </fieldset>
+
+    <fieldset>
+      <legend>Skills and extras</legend>
+      <label>Skills <span class="opt">— separate with commas</span></label>
+      <input name="skills" placeholder="Python, SQL, Microsoft Excel">
+      <label>Driving licence <span class="opt">— categories held</span></label>
+      <input name="driving_licence" placeholder="B">
+      <label>Anything else <span class="opt">— projects, awards, hobbies</span></label>
+      <textarea name="extra" placeholder="Projects, certificates, volunteering, hobbies..."></textarea>
+    </fieldset>
+
+    <button class="submit" id="submit">Send to the team</button>
+    <p class="error" id="error" hidden></p>
+  </form>
+</div>
+
+<script>
+const h = (html) => { const d = document.createElement("div"); d.innerHTML = html.trim(); return d.firstChild; };
+
+function eduBlock() {
+  return h(`<div class="entry">
+    <button type="button" class="rm">Remove</button>
+    <label>Qualification <span class="opt">— exactly as on the certificate</span></label>
+    <input data-f="title" placeholder="B.Tech in Computer Science">
+    <label>School or university</label><input data-f="organisation">
+    <div class="row">
+      <div><label>From</label><input data-f="from" placeholder="MM/YYYY"></div>
+      <div><label>To</label><input data-f="to" placeholder="MM/YYYY or Present"></div>
+    </div>
+    <div class="row">
+      <div><label>City</label><input data-f="city"></div>
+      <div><label>Country</label><input data-f="country"></div>
+    </div>
+    <div class="row">
+      <div><label>Field of study</label><input data-f="field"></div>
+      <div><label>Final grade</label><input data-f="final_grade" placeholder="8.4 CGPA"></div>
+    </div>
+  </div>`);
+}
+
+function workBlock() {
+  return h(`<div class="entry">
+    <button type="button" class="rm">Remove</button>
+    <label>Job title</label><input data-f="title" placeholder="Data Analyst Intern">
+    <label>Employer</label><input data-f="employer">
+    <div class="row">
+      <div><label>From</label><input data-f="from" placeholder="MM/YYYY"></div>
+      <div><label>To</label><input data-f="to" placeholder="MM/YYYY or Present"></div>
+    </div>
+    <div class="row">
+      <div><label>City</label><input data-f="city"></div>
+      <div><label>Country</label><input data-f="country"></div>
+    </div>
+    <label>What you did <span class="opt">— one point per line</span></label>
+    <textarea data-f="description" placeholder="Built weekly sales dashboards&#10;Automated a monthly report"></textarea>
+  </div>`);
+}
+
+function langBlock() {
+  return h(`<div class="entry">
+    <button type="button" class="rm">Remove</button>
+    <label>Language</label><input data-f="name" placeholder="English">
+    <div class="row3">
+      <div><label>Listening</label>${levels("listening")}</div>
+      <div><label>Reading</label>${levels("reading")}</div>
+      <div><label>Writing</label>${levels("writing")}</div>
+    </div>
+    <div class="row">
+      <div><label>Spoken production</label>${levels("spoken_production")}</div>
+      <div><label>Spoken interaction</label>${levels("spoken_interaction")}</div>
+    </div>
+  </div>`);
+}
+
+function levels(field) {
+  const opts = ["", "A1", "A2", "B1", "B2", "C1", "C2"]
+    .map((v) => `<option value="${v}">${v || "—"}</option>`).join("");
+  return `<select data-f="${field}">${opts}</select>`;
+}
+
+function wire(container, make) {
+  const add = () => {
+    const block = make();
+    block.querySelector(".rm").addEventListener("click", () => block.remove());
+    container.append(block);
+  };
+  add();
+  return add;
+}
+
+const addEdu = wire(document.getElementById("education"), eduBlock);
+const addWork = wire(document.getElementById("work"), workBlock);
+const addLang = wire(document.getElementById("languages"), langBlock);
+document.getElementById("add-edu").addEventListener("click", addEdu);
+document.getElementById("add-work").addEventListener("click", addWork);
+document.getElementById("add-lang").addEventListener("click", addLang);
+
+function readBlocks(id) {
+  return [...document.querySelectorAll(`#${id} .entry`)].map((entry) => {
+    const row = {};
+    entry.querySelectorAll("[data-f]").forEach((el) => { row[el.dataset.f] = el.value.trim(); });
+    return row;
+  }).filter((row) => Object.values(row).some(Boolean));
+}
+
+document.getElementById("form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const button = document.getElementById("submit");
+  const error = document.getElementById("error");
+  error.hidden = true;
+  button.disabled = true;
+  button.textContent = "Sending...";
+
+  const form = new FormData(e.target);
+  const get = (k) => (form.get(k) || "").trim();
+  const payload = {
+    personal: {
+      first_name: get("first_name"), last_name: get("last_name"),
+      date_of_birth: get("date_of_birth"), gender: get("gender"),
+      nationality: get("nationality"), passport: get("passport"),
+      email: get("email"), phone: get("phone"), website: get("website"),
+      address: { street: get("street"), city: get("city"),
+                 pincode: get("pincode"), country: get("country") },
+    },
+    about: get("about"),
+    education: readBlocks("education"),
+    work_experience: readBlocks("work"),
+    languages: { mother_tongues: get("mother_tongue"), other: readBlocks("languages") },
+    digital_skills: get("skills"),
+    driving_licence: get("driving_licence"),
+    additional_sections: get("extra")
+      ? [{ title: "Additional information", items: [{ heading: "", text: get("extra") }] }] : [],
+  };
+
+  try {
+    const res = await fetch(location.pathname, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error((await res.json()).error || "Something went wrong.");
+    document.getElementById("wrap").innerHTML =
+      `<div class="done"><h2>Thank you</h2>
+       <p>Your details have reached our team. We will prepare your Europass CV
+          and come back to you if anything is missing.</p></div>`;
+    window.scrollTo(0, 0);
+  } catch (err) {
+    error.textContent = err.message;
+    error.hidden = false;
+    button.disabled = false;
+    button.textContent = "Send to the team";
+  }
+});
+</script>
+</body>
+</html>

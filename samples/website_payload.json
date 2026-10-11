@@ -1,0 +1,31 @@
+{
+  "external_id": "STU-2026-0142",
+  "cv": {
+    "personal": {
+      "name": "RAHUL KUMAR SHARMA",
+      "date_of_birth": "21/05/2003",
+      "gender": "M",
+      "nationality": "Indian",
+      "phone": "+91 98765 43210",
+      "email": "Rahul.Sharma@example.com",
+      "address": { "street": "12 MG Road", "city": "aligarh", "pincode": "202001", "country": "india" }
+    },
+    "about": "Computer science student interested in data engineering, applying for a master's degree in Italy.",
+    "education": [
+      { "qualification": "B.Tech in Computer Science and Engineering", "university": "Aligarh Muslim University",
+        "city": "Aligarh", "country": "India", "from": "08/2021", "to": "06/2025", "final_grade": "8.1 CGPA" },
+      { "qualification": "Senior Secondary (Class XII)", "school": "Delhi Public School", "city": "Aligarh",
+        "country": "India", "from": "2019", "to": "2021", "final_grade": "91%" }
+    ],
+    "work_experience": [
+      { "position": "Software Engineering Intern", "company": "Tata Consultancy Services", "city": "Noida",
+        "country": "India", "from": "Jun 2024", "to": "Aug 2024",
+        "description": "• Built internal reporting dashboards\n• Wrote automated tests for payment APIs" }
+    ],
+    "languages": {
+      "mother_tongues": "Hindi",
+      "other": [ { "language": "English", "level": "C1" }, { "language": "Italian", "level": "A1" } ]
+    },
+    "digital_skills": "Python, SQL, Power BI, Git"
+  }
+}

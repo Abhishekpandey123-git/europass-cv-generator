@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CVs · Europass CV service</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 26'%3E%3Crect width='20' height='26' rx='2' fill='%23fff' stroke='%23d5dbe2'/%3E%3Crect width='20' height='6' rx='2' fill='%230c56a5'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="/static/editor.css">
+  <link rel="stylesheet" href="/static/dashboard.css">
+  <link rel="icon" href="/static/favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" sizes="32x32" href="/static/favicon-32.png">
+  <link rel="apple-touch-icon" href="/static/favicon-180.png">
+</head>
+<body class="dash">
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark" aria-hidden="true"></span>
+    <span class="brand-name">Europass CV service</span>
+  </div>
+  <div></div>
+  <div class="actions">
+    <button class="btn" id="shareBtn">Share form with student</button>
+    <button class="btn" id="importBtn">Upload a CV or form</button>
+    <button class="btn btn-primary" id="newBtn">New CV</button>
+    <form method="post" action="/logout" id="logoutForm" hidden><button class="btn" type="submit">Sign out</button></form>
+    <input type="file" id="importInput" accept=".pdf,.docx,.doc,.odt,.rtf,.txt,.md,.csv,.tsv,.xlsx,.json,.xml,.html,.htm,.png,.jpg,.jpeg,.webp,.tif,.tiff" hidden>
+  </div>
+</header>
+
+<main class="dash-main">
+  <div class="notice" id="notice" hidden></div>
+
+  <div class="upload-guide">
+    <div class="upload-guide-text">
+      <h2>Create a Europass CV</h2>
+      <p>Upload a student's existing CV or a filled Student Information Form, and it becomes a Europass CV you can review and edit. Accepted files: <strong>PDF, Word, ODT, RTF, plain text, Excel or CSV, a web page, or a photo / scan of a printed CV</strong>. Video, audio and archives are not accepted.</p>
+      <p class="upload-guide-hint">CVs sent automatically by the website also appear in the list below.</p>
+    </div>
+    <div class="upload-guide-actions">
+      <button class="btn btn-primary" id="guideUpload">Upload a CV or form</button>
+      <button class="btn" id="guideNew">Start a blank CV</button>
+    </div>
+  </div>
+
+  <div class="filters">
+    <div class="status-tabs" role="tablist" aria-label="Filter by status">
+      <button role="tab" data-status="" class="is-active">All <span data-count="all"></span></button>
+      <button role="tab" data-status="new">New from website <span data-count="new"></span></button>
+      <button role="tab" data-status="in_review">In review <span data-count="in_review"></span></button>
+      <button role="tab" data-status="ready">Ready <span data-count="ready"></span></button>
+    </div>
+    <input type="search" id="search" placeholder="Search name, email or website id" aria-label="Search CVs">
+  </div>
+
+  <div class="table-wrap">
+    <table class="cv-table">
+      <thead>
+        <tr><th>Name</th><th>Status</th><th>Source</th><th>Last change</th><th><span class="sr">Actions</span></th></tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+    <div class="empty" id="empty" hidden></div>
+  </div>
+</main>
+
+<div class="toasts" id="toasts" aria-live="polite"></div>
+
+<div class="coach" id="coach" hidden>
+  <div class="coach-backdrop"></div>
+  <div class="coach-pop" id="coachPop">
+    <h3>Welcome! Start here</h3>
+    <p>Click <strong>Upload a CV or form</strong> to turn a student's CV or Student Information Form into a Europass CV. You can upload a PDF, Word file, spreadsheet, web page, or even a photo of a printed CV.</p>
+    <button class="btn btn-primary" id="coachGotIt">Got it</button>
+  </div>
+</div>
+
+<script src="/static/dashboard.js"></script>
+</body>
+</html>

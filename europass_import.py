@@ -8,6 +8,8 @@ skipped and reported as a warning rather than failing the whole import.
 
 from __future__ import annotations
 
+import sections as cv_sections
+
 import html
 import io
 import re
@@ -127,7 +129,7 @@ def period(el, wrapper):
         return None, None
     start = short_date(any_text(child(p, "StartDate"), "FormattedDateTime") or text(p, "StartDate"))
     end = short_date(any_text(child(p, "EndDate"), "FormattedDateTime") or text(p, "EndDate"))
-    current = any_text(p, "CurrentIndicator").lower() == "true"
+    current = (any_text(p, "CurrentIndicator") or any_text(p, "Ongoing")).lower() == "true"
     return start, (None if current else end)
 
 
@@ -158,24 +160,51 @@ def xml_to_cv(xml_bytes: bytes) -> tuple[dict, list[str]]:
         "first_name": text(person, "PersonName", "GivenName"),
         "last_name": text(person, "PersonName", "FamilyName"),
     }
+    # Europass allows any number of Communication blocks. The first of each
+    # kind becomes the primary field the templates show; the rest are kept as
+    # extras so a re-export reproduces all of them.
+    p.setdefault("extra_emails", [])
+    p.setdefault("extra_websites", [])
+    p.setdefault("extra_phones", [])
+    p.setdefault("social_media", [])
+    p.setdefault("instant_messaging", [])
     for comm in children(person, "Communication"):
-        channel = text(comm, "ChannelCode").lower()
+        channel = text(comm, "ChannelCode").lower().replace(" ", "")
         use = text(comm, "UseCode")
         address = child(comm, "Address")
-        if channel in ("telephone", "mobiletelephone", "phone") and "phone" not in p:
+        if channel in ("socialmedia", "social"):
+            p["social_media"].append({
+                "type": use or "Other",
+                "username": text(comm, "MediaUsername"),
+                "url": text(comm, "URI"),
+            })
+        elif channel in ("instantmessage", "instantmessaging", "im"):
+            p["instant_messaging"].append({
+                "type": use or "Other",
+                "value": text(comm, "URI"),
+            })
+        elif channel in ("telephone", "mobiletelephone", "phone") and "phone" not in p:
             p["phone"] = {
                 "type": (use or "Mobile").capitalize(),
                 "country_dialing": text(comm, "CountryDialing"),
                 "number": text(comm, "DialNumber"),
+                "country_code": text(comm, "CountryCode").lower(),
             }
+        elif channel in ("telephone", "mobiletelephone", "phone"):
+            p["extra_phones"].append(text(comm, "DialNumber"))
         elif channel == "email" and "email" not in p:
             p["email"] = text(comm, "URI")
+        elif channel == "email":
+            p["extra_emails"].append(text(comm, "URI"))
         elif channel in ("web", "website") and "website" not in p:
             p["website"] = text(comm, "URI")
+        elif channel in ("web", "website"):
+            p["extra_websites"].append(text(comm, "URI"))
         elif address is not None and "address" not in p:
             code = text(address, "CountryCode")
             p["address"] = {
                 "street": " ".join(t for t in (text(a) for a in children(address, "AddressLine")) if t),
+                "address_lines": [t for t in (text(a) for a in children(address, "AddressLine")) if t],
                 "postal_code": text(address, "PostalCode"),
                 "city": text(address, "CityName"),
                 "country": country_name(code),
@@ -188,6 +217,27 @@ def xml_to_cv(xml_bytes: bytes) -> tuple[dict, list[str]]:
         p["nationalities"] = [{"name": NATIONALITIES.get(c.lower(), c.upper()), "code": c.lower()} for c in nats]
     if text(person, "BirthDate"):
         p["date_of_birth"] = short_date(text(person, "BirthDate"), keep_day=True)
+
+    birth = child(person, "BirthPlace")
+    if birth is not None:
+        city = text(birth, "CityName")
+        code = text(birth, "CountryCode")
+        if city or code:
+            p["place_of_birth"] = {k: v for k, v in
+                                   (("city", city), ("country", country_name(code))) if v}
+
+    for doc in descendants(person, "LegalDocument"):
+        number = text(doc, "DocumentID")
+        if number:
+            p["passport"] = number
+            p["document_type"] = text(doc, "DocumentTypeCode") or "Passport"
+            break
+    visa = child(person, "Visa")
+    if visa is not None:
+        issuing = any_text(visa, "IssuingCountryCode")
+        if issuing:
+            p["work_permit_country"] = issuing.lower()
+            p["work_permit"] = country_name(issuing)
     gender = text(person, "GenderCode").upper()
     if gender:
         p["gender"] = {"M": "Male", "F": "Female"}.get(gender[:1], "Other")
@@ -195,8 +245,15 @@ def xml_to_cv(xml_bytes: bytes) -> tuple[dict, list[str]]:
 
     mother = []
     for lang in children(person, "PrimaryLanguageCode"):
-        code = text(lang)
-        mother.append({"name": lang.get("name") or LANGUAGES.get(code.lower(), code), "code": code.lower()})
+        value = text(lang)                       # "Bengali", or a code like "ben"
+        marker = (lang.get("name") or "").strip()
+        if marker and marker.upper() not in ("FREE_TEXT", "NORMAL"):
+            name, code = marker, value.lower()   # older files: name in the attribute
+        else:
+            name = LANGUAGES.get(value.lower(), value)   # current files: name is the text
+            code = value.lower() if len(value) <= 3 else ""
+        if name:
+            mother.append({"name": name, "code": code})
 
     if profile is None:
         warnings.append("No profile block found: only personal details were imported.")
@@ -217,6 +274,7 @@ def xml_to_cv(xml_bytes: bytes) -> tuple[dict, list[str]]:
             start, end = period(ph, "EmploymentPeriod")
             city = text(org_addr, "CityName") or text(ph, "City")
             code = text(org_addr, "CountryCode") or text(ph, "Country")
+            comms = list(descendants(eh, "Communication"))
             jobs.append({
                 "title": text(ph, "PositionTitle"),
                 "employer": org,
@@ -226,6 +284,16 @@ def xml_to_cv(xml_bytes: bytes) -> tuple[dict, list[str]]:
                 "start": start,
                 "end": end,
                 "description": clean_html(text(ph, "Description")),
+                "department": text(eh, "Department"),
+                "url": text(eh, "Link"),
+                "industry_code": any_text(eh, "IndustryCode"),
+                "website": next((text(c, "URI") for c in comms
+                                 if text(c, "ChannelCode").lower() in ("web", "website")), ""),
+                "email": next((text(c, "URI") for c in comms
+                               if text(c, "ChannelCode").lower() == "email"), ""),
+                "address_lines": [t for t in (text(a) for a in descendants(eh, "AddressLine")) if t],
+                "position_city": text(ph, "City"),
+                "position_country": text(ph, "Country"),
             })
     cv["work_experience"] = jobs
 
@@ -248,6 +316,15 @@ def xml_to_cv(xml_bytes: bytes) -> tuple[dict, list[str]]:
             "field": any_text(child(degree, "OccupationalSkillsCovered"), "Description") if degree is not None else "",
             "final_grade": any_text(degree, "DegreeGrade") if degree is not None else "",
             "eqf_level": int(eqf) if eqf and 1 <= int(eqf) <= 8 else None,
+            "website": next((text(c, "URI") for c in descendants(att, "Communication")
+                             if text(c, "ChannelCode").lower() in ("web", "website")), ""),
+            "program_concentration": any_text(child(degree, "FieldOfStudy"), "ProgramConcentration") if degree is not None else "",
+            "degree_form": ("field_of_study" if (degree is not None and child(degree, "FieldOfStudy") is not None)
+                            else "occupational" if (degree is not None and child(degree, "OccupationalSkillsCovered") is not None)
+                            else ""),
+            "national_classification": any_text(degree, "NationalClassification") if degree is not None else "",
+            "credits": any_text(degree, "NumberOfCredit") if degree is not None else "",
+            "credit_type": any_text(degree, "CreditType") if degree is not None else "",
         }
         desc = clean_html(text(att, "Description"))
         if desc:
@@ -272,15 +349,98 @@ def xml_to_cv(xml_bytes: bytes) -> tuple[dict, list[str]]:
                         break
             other_langs.append(lang)
         elif "digital" in taxonomy:
-            digital.append(name or cid)
+            digital.append(name or cid)          # flat fallback, see groups below
         elif "driving" in taxonomy:
             licences.append(cid)
         elif name:
             warnings.append(f"Skipped skill '{name}' (type '{taxonomy or 'unknown'}').")
 
     cv["languages"] = {"mother_tongues": mother, "other": other_langs}
-    cv["digital_skills"] = [d for d in digital if d]
+    # Europass groups skills under <SkillsGroup><Title>, and the group titles
+    # are shown on the CV ("social skill", "other skills"), so keep them.
+    groups = []
+    for holder in descendants(profile, "Skills"):
+        for group in children(holder, "SkillsGroup"):
+            names = [text(c, "CompetencyName") or text(c, "CompetencyID")
+                     for c in children(group, "PersonCompetency")]
+            names = [n for n in names if n]
+            if names:
+                groups.append({"title": text(group, "Title"), "items": names})
+    cv["digital_skills"] = groups if groups else [d for d in digital if d]
     cv["driving_licence"] = [l for l in licences if l]
+
+    # Anything in the file we have no field for is reported rather than dropped
+    # in silence, so a Europass change shows up as a warning on the dashboard
+    # instead of a student's CV quietly losing a section.
+    KNOWN = {
+        "Candidate", "DocumentID", "CandidateSupplier", "PartyID", "PartyName",
+        "PersonContact", "PrecedenceCode", "CandidatePerson", "PersonName",
+        "GivenName", "FamilyName", "Communication", "ChannelCode", "UseCode",
+        "CountryDialing", "DialNumber", "URI", "Address", "AddressLine",
+        "CityName", "CountryCode", "PostalCode", "NationalityCode", "BirthDate",
+        "BirthPlace", "GenderCode", "PrimaryLanguageCode", "LegalDocument",
+        "DocumentTypeCode", "CandidateProfile", "ID", "ExecutiveSummary",
+        "EmploymentHistory", "EmployerHistory", "OrganizationName",
+        "OrganizationContact", "PositionHistory", "PositionTitle",
+        "EmploymentPeriod", "StartDate", "EndDate", "FormattedDateTime",
+        "CurrentIndicator", "Ongoing", "Description", "City", "Country",
+        "EducationHistory", "EducationOrganizationAttendance", "AttendancePeriod",
+        "EducationDegree", "DegreeName", "DegreeGrade", "EducationLevelCode",
+        "OccupationalSkillsCovered", "PersonQualifications", "PersonCompetency",
+        "CompetencyID", "TaxonomyID", "CompetencyName", "CompetencyDimension",
+        "CompetencyDimensionTypeCode", "Score", "ScoreText", "Skills",
+        "SkillsGroup", "Title", "Licenses", "Certifications", "Certification",
+        "PublicationHistory", "Publication", "EmploymentReferences",
+        "EmploymentReference", "Attachment", "HobbiesAndInterests",
+        "HobbyOrInterest", "CreativeWorks", "CreativeWork", "Projects", "Project",
+        "SocialAndPoliticalActivities", "SocialOrPoliticalActivity",
+        "NetworksAndMemberships", "NetworkOrMembership", "ConferencesAndSeminars",
+        "ConferenceOrSeminar", "VoluntaryWorks", "VoluntaryWork",
+        "CourseCertifications", "CourseCertification", "RenderingInformation",
+        "Design", "Template", "Color", "FontSize", "Logo", "PageNumbers",
+        "SectionsOrder", "Section", "Name", "ClosingStatement", "Statement",
+        "Place", "Date", "Location", "EmbeddedData", "FileType", "Instructions",
+        "CertificationName", "IssuingAuthority", "IssuingOrganisation", "ModeOfLearning", "FirstIssuedDate", "Authors", "Journal", "Publisher", "Volume", "Year", "Reference", "DOI", "Link", "FormattedPublicationDescription", "Referee", "Role", "Comment", "Activity", "Ongoing", "StartDate", "EndDate", "FormattedDateTime", "Licenses", "License", "LicenseTypeCode", "Attachment", "PersonName", "GivenName", "FamilyName", "Communication", "ChannelCode", "URI", "DialNumber", "CountryDialing", "CountryCode", "SocialAndPoliticalActivity", "NetworkAndMembership", "ConferenceAndSeminar", "Title", "Description", "Others", "Other",
+    }
+    closing = child(root, "RenderingInformation")
+    closing = find(closing, "ClosingStatement") if closing is not None else None
+    if closing is not None:
+        statement = text(closing, "Statement")
+        if statement:
+            cv["closing_statement"] = {
+                "text": statement,
+                "place": text(closing, "Place"),
+                "date": short_date(any_text(closing, "FormattedDateTime"), keep_day=True) or "",
+            }
+
+    unknown = sorted({local(el.tag) for el in root.iter()
+                      if local(el.tag) not in KNOWN and (el.text or "").strip()})
+    if unknown:
+        warnings.append("This CV contains fields this tool does not know yet, so they were "
+                        "not imported: " + ", ".join(unknown[:8])
+                        + ("…" if len(unknown) > 8 else "") + ". Please add them by hand.")
+
+    # Typed sections. Each Europass container has its own fields - dates,
+    # locations, links, a publication's journal and volume - so they are read
+    # into their own shape rather than flattened to {heading, text}. The
+    # generic version of this lost 116 of 234 element paths on a full CV.
+    cv.update(cv_sections.blank())
+    cv_sections.read(profile, cv)
+
+    # Anything in a container we do not model stays available to staff rather
+    # than being silently dropped.
+    leftovers = []
+    for holder in descendants(profile, "Others"):
+        for el in descendants(holder, "Other"):
+            title = text(el, "Title") or any_text(el, "Name")
+            body = clean_html(text(el, "Description") or any_text(el, "Description"))
+            if isinstance(body, list):
+                body = "\n".join(body)
+            if title or body:
+                leftovers.append({"heading": title, "text": body})
+    if leftovers:
+        cv["additional_sections"] = [{"title": "Additional information", "items": leftovers}]
+
     return cv, warnings
 
 

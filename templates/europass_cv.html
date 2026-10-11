@@ -1,8 +1,19 @@
 {#- Europass-style CV template.
     In editor mode (editable=True) elements carry data-path / data-select
     attributes so the web editor can edit text in place and select entries. -#}
-{%- macro path(p, multiline=false) -%}
-  {%- if editable %} data-path="{{ p }}"{% if multiline %} data-multiline="1"{% endif %}{% endif -%}
+{%- macro path(p, multiline=false, rich=false) -%}
+  {%- if editable %} data-path="{{ p }}"{% if multiline %} data-multiline="1"{% endif %}
+  {%- if multiline or rich %} data-rich="1"{% endif %}{% endif -%}
+{%- endmacro -%}
+{%- macro align(p) -%}
+  {%- set a = design.block_align.get(p) -%}{%- if a %} style="text-align: {{ a }}"{% endif -%}
+{%- endmacro -%}
+{%- macro title(key, text) -%}
+  <h2 class="section-title"><span{{ path('design.section_titles.' ~ key) }}>{{ text }}</span></h2>
+{%- endmacro -%}
+{%- macro lbl(key, text) -%}
+  {%- set t = design.labels.get(key, text) -%}
+  <span class="label"><span{{ path('design.labels.' ~ key) }}>{{ t }}</span>:</span>
 {%- endmacro -%}
 {%- macro sel(s) -%}{%- if editable %} data-select="{{ s }}"{% endif -%}{%- endmacro -%}
 {%- macro empty_hint(text) -%}
@@ -12,12 +23,16 @@
   {%- set loc = [] -%}
   {%- if item.city %}{% set _ = loc.append(('City', item.city, prefix ~ '.city')) %}{% endif -%}
   {%- if item.country %}{% set _ = loc.append(('Country', item.country, prefix ~ '.country')) %}{% endif -%}
+  {%- if item.website %}{% set _ = loc.append(('Website', item.website, prefix ~ '.website')) %}{% endif -%}
   {%- if loc -%}
-  <p class="kv">{% for l, v, pth in loc %}<span class="label-semi">{{ l }}:</span> <span{{ path(pth) }}>{{ v }}</span>{% if not loop.last %}<span class="sep">|</span>{% endif %}{% endfor %}</p>
+  <p class="kv">{% for l, v, pth in loc %}<span class="label-semi">{{ l }}:</span> {% if l == 'Website' and not editable %}<a href="{{ v if '://' in v else 'https://' ~ v }}">{{ v }}</a>{% else %}<span{{ path(pth) }}>{{ v }}</span>{% endif %}{% if not loop.last %}<span class="sep">|</span>{% endif %}{% endfor %}</p>
   {%- endif -%}
 {%- endmacro -%}
 {%- macro dates(item) -%}
   <div class="entry-date">[ {{ item.start | fmt_date }} – {{ item.end | fmt_date if item.end else 'Current' }} ]</div>
+{%- endmacro -%}
+{%- macro dates_inline(item) -%}
+  {%- if item.start or item.end %} <span class="entry-date-inline">[ {{ item.start | fmt_date }} – {{ item.end | fmt_date if item.end else 'Current' }} ]</span>{%- endif -%}
 {%- endmacro -%}
 <!DOCTYPE html>
 <html lang="{{ cv.language or 'en' }}">
@@ -29,8 +44,11 @@
   {%- if editable %}
   <style>
     @media screen {
-      html { background: transparent; }
-      body { width: 210mm; min-height: 297mm; padding: 10mm var(--page-margin) 12mm; background: #fff; }
+      /* Same margins the PDF uses. The body itself is transparent so the desk
+         shows between sheets; each .page-frame paints its own white sheet. */
+      html { background: #dde3ea; }
+      body { width: 210mm; min-height: 297mm; background-color: transparent;
+             padding: {{ page.first_top }}mm var(--page-margin) {{ page.bottom }}mm; }
     }
     [data-path] { outline: none; border-radius: 1px; cursor: text; }
     [data-path]:hover { box-shadow: 0 0 0 1px rgba(214, 139, 29, .55); }
@@ -42,20 +60,39 @@
   </style>
   {%- endif %}
 </head>
-<body>
+<body class="{{ template|replace('template','template-') }}" data-first-top="{{ page.first_top }}" data-top="{{ page.top }}" data-bottom="{{ page.bottom }}">
+{#- Template 3's bracket frame and Template 2's sidebar band are fixed
+    elements so WeasyPrint repeats them on every page, as Europass does. -#}
+{%- if template == 'template3' %}
+<div class="frame" aria-hidden="true"><i class="bar-top"></i><i class="bar-bottom"></i><i class="arm-tl"></i><i class="arm-tr"></i><i class="arm-bl"></i><i class="arm-br"></i></div>
+{%- elif template == 'template2' %}
+<div class="sidebar-band" aria-hidden="true"></div>
+<div class="sidebar-wide" aria-hidden="true"></div>
+{%- endif %}
+
+{#- The logo lives in its own zero-height layer, before the header and
+    outside it, for two reasons. Every template makes .header a grid, and
+    WeasyPrint lays an absolutely-positioned grid child out as a grid item
+    rather than positioning it. And templates 1 and 2 pull .header up with a
+    negative top margin, which would otherwise collapse through the body and
+    drag the logo's containing block up with it. Being in flow once, it stays
+    on page 1 - which is what the official <Logo>FirstPage</Logo> means. -#}
+{% if logo_src %}<div class="logo-layer"><img class="logo" src="{{ logo_src }}" alt=""></div>{% endif %}
 
 {#- ======================= HEADER ======================= #}
 <div class="header"{{ sel('personal') }}>
-  {% if photo_src %}<img class="photo" src="{{ photo_src }}" alt="">{% endif %}
+  {% if photo_src %}<img class="photo" src="{{ photo_src }}" alt="" data-photo="1">
+  {%- elif editable %}<div class="photo photo-empty" data-photo="1" title="Click to add a photo">Add<br>photo</div>{% endif %}
   <div class="header-main">
     <h1 class="name"><span{{ path('personal.first_name') }}>{{ p.first_name }}</span> <span{{ path('personal.last_name') }}>{{ p.last_name }}</span></h1>
 
     {%- set line1 = [] %}
-    {%- if p.date_of_birth %}{% set _ = line1.append(('Date of birth', p.date_of_birth | fmt_date, None)) %}{% endif %}
-    {%- if p.nationalities %}{% set _ = line1.append(('Nationality', p.nationalities | map(attribute='name') | join(', '), None)) %}{% endif %}
-    {%- if p.gender %}{% set _ = line1.append(('Gender', p.gender, None)) %}{% endif %}
+    {%- if p.passport %}{% set _ = line1.append(('passport', p.document_type or 'Passport', p.passport, 'personal.passport')) %}{% endif %}
+    {%- if p.date_of_birth %}{% set _ = line1.append(('dob', 'Date of birth', p.date_of_birth | fmt_date, 'personal.date_of_birth')) %}{% endif %}
+    {%- if p.nationalities %}{% set _ = line1.append(('nationality', 'Nationality', p.nationalities | map(attribute='name') | join(', '), 'personal.nationalities.0.name')) %}{% endif %}
+    {%- if p.gender %}{% set _ = line1.append(('gender', 'Gender', p.gender, 'personal.gender')) %}{% endif %}
     {%- if line1 %}
-    <p class="contact-line">{% for label, value, pth in line1 %}<span class="label">{{ label }}:</span> {{ value }}{% if not loop.last %}<span class="sep">|</span>{% endif %}{% endfor %}</p>
+    <p class="contact-line">{% for key, label, value, pth in line1 %}{{ lbl(key, label) }} <span{{ path(pth) if pth else '' }}>{{ value }}</span>{% if not loop.last %}<span class="sep">|</span>{% endif %}{% endfor %}</p>
     {%- endif %}
 
     {%- set line2 = [] %}
@@ -66,25 +103,34 @@
     <p class="contact-line">
       {%- for item in line2 -%}
         {%- if item == 'phone' -%}
-          <span class="label">Phone number:</span> {% if p.phone.country_dialing %}(+{{ p.phone.country_dialing }}) {% endif %}<span{{ path('personal.phone.number') }}>{{ p.phone.number }}</span>{% if p.phone.type %} ({{ p.phone.type }}){% endif %}
+          <span class="ico ico-phone"></span>{{ lbl("phone", "Phone number") }} {% if p.phone.country_dialing %}(+<span{{ path('personal.phone.country_dialing') }}>{{ p.phone.country_dialing }}</span>) {% endif %}<span{{ path('personal.phone.number') }}>{{ p.phone.number }}</span>{% if p.phone.type %} (<span{{ path('personal.phone.type') }}>{{ p.phone.type }}</span>){% endif %}
         {%- elif item == 'email' -%}
-          <span class="label">Email address:</span> <span{{ path('personal.email') }}>{{ p.email }}</span>
+          <span class="ico ico-mail"></span>{{ lbl("email", "Email address") }} {% if editable %}<span{{ path('personal.email') }}>{{ p.email }}</span>{% else %}<a href="mailto:{{ p.email }}">{{ p.email }}</a>{% endif %}
         {%- else -%}
-          <span class="label">Website:</span> <span{{ path('personal.website') }}>{{ p.website }}</span>
+          <span class="ico ico-web"></span>{{ lbl("website", "Website") }} {% if editable %}<span{{ path('personal.website') }}>{{ p.website }}</span>{% else %}<a href="{{ p.website if '://' in p.website else 'https://' ~ p.website }}">{{ p.website }}</a>{% endif %}
         {%- endif -%}
         {%- if not loop.last %}<span class="sep">|</span>{% endif -%}
       {%- endfor -%}
     </p>
     {%- endif %}
 
+    {%- set more = [] %}
+    {%- for v in p.extra_phones or [] %}{% set _ = more.append(('phone', v)) %}{% endfor %}
+    {%- for v in p.extra_emails or [] %}{% set _ = more.append(('mail', v)) %}{% endfor %}
+    {%- for v in p.extra_websites or [] %}{% set _ = more.append(('web', v)) %}{% endfor %}
+    {%- for s in p.social_media or [] %}{% set _ = more.append((s.type or 'Social', s.url)) %}{% endfor %}
+    {%- for s in p.instant_messaging or [] %}{% set _ = more.append((s.type or 'Messaging', s.value)) %}{% endfor %}
+    {%- if more %}
+    <p class="contact-line">{% for label, value in more %}<span class="label">{{ label if label not in ('phone','mail','web') else {'phone':'Phone','mail':'Email','web':'Website'}[label] }}:</span> {{ value }}{% if not loop.last %}<span class="sep">|</span>{% endif %}{% endfor %}</p>
+    {%- endif %}
+
     {%- if p.address and (p.address.street or p.address.city or p.address.country) %}
     <p class="contact-line">
-      <span class="label">Address:</span>
-      {{ [p.address.street, ((p.address.postal_code or '') ~ ' ' ~ (p.address.city or '')) | trim, p.address.country] | select | join(', ') }}{% if p.address.type %} ({{ p.address.type }}){% endif %}
+      <span class="ico ico-home"></span>{{ lbl("address", "Address") }}
+      <span{{ path('personal.address.street') }}>{{ p.address.street }}</span>{% if p.address.street2 %}, <span{{ path('personal.address.street2') }}>{{ p.address.street2 }}</span>{% endif %}{% if p.address.city %}, <span{{ path('personal.address.postal_code') }}>{{ p.address.postal_code or '' }}</span> <span{{ path('personal.address.city') }}>{{ p.address.city }}</span>{% endif %}{% if p.address.country %}, <span{{ path('personal.address.country') }}>{{ p.address.country }}</span>{% endif %}{% if p.address.type %} (<span{{ path('personal.address.type') }}>{{ p.address.type }}</span>){% endif %}
     </p>
     {%- endif %}
   </div>
-  {% if logo_src %}<img class="logo" src="{{ logo_src }}" alt="">{% endif %}
 </div>
 
 {#- ======================= SECTIONS (in chosen order) ======================= #}
@@ -92,24 +138,25 @@
 
 {%- if key == 'about' and (cv.about or editable) %}
 <div class="section"{{ sel('section:about') }}>
-  <h2 class="section-title">{{ labels.about }}</h2>
-  {% if cv.about %}<p class="about"{{ path('about', true) }}>{{ cv.about }}</p>{% else %}{{ empty_hint('Add a short summary in the About me panel.') }}{% endif %}
+  {{ title('about', labels.about) }}
+  {% if cv.about %}<p class="about"{{ path('about', true) }}{{ align('about') }}>{{ cv.about | rich }}</p>{% else %}{{ empty_hint('Add a short summary in the About me panel.') }}{% endif %}
 </div>
 
 {%- elif key == 'work_experience' and (cv.work_experience or editable) %}
 <div class="section">
-  <h2 class="section-title"{{ sel('section:work_experience') }}>{{ labels.work_experience }}</h2>
+  <div{{ sel('section:work_experience') }}>{{ title('work_experience', labels.work_experience) }}</div>
   {% for job in cv.work_experience or [] %}{% set base = 'work_experience.' ~ loop.index0 %}
   <div class="entry"{{ sel(base) }}>
-    {{ dates(job) }}
+    {# Europass lists the employer first, then the position, then the dates. #}
+    {% if job.employer %}<div class="entry-org-line"><span class="ico-org"></span><span class="entry-org"{{ path(base ~ '.employer') }}>{{ job.employer }}</span></div>{% endif %}
     <h3 class="entry-title"{{ path(base ~ '.title') }}>{{ job.title }}</h3>
-    {% if job.employer %}<div class="entry-org"{{ path(base ~ '.employer') }}>{{ job.employer }}</div>{% endif %}
+    {{ dates(job) }}
     {{ location(base, job) }}
     <div class="entry-body">
       {% if job.description is string and job.description %}
-        <p{{ path(base ~ '.description', true) }}>{{ job.description }}</p>
+        <p{{ path(base ~ '.description', true) }}{{ align(base ~ '.description') }}>{{ job.description | rich }}</p>
       {% elif job.description %}
-        <ul>{% for item in job.description %}<li{{ path(base ~ '.description.' ~ loop.index0) }}>{{ item }}</li>{% endfor %}</ul>
+        <ul>{% for item in job.description %}<li{{ path(base ~ '.description.' ~ loop.index0, false, true) }}>{{ item | rich }}</li>{% endfor %}</ul>
       {% endif %}
     </div>
   </div>
@@ -119,19 +166,18 @@
 
 {%- elif key == 'education' and (cv.education or editable) %}
 <div class="section">
-  <h2 class="section-title"{{ sel('section:education') }}>{{ labels.education }}</h2>
+  <div{{ sel('section:education') }}>{{ title('education', labels.education) }}</div>
   {% for ed in cv.education or [] %}{% set base = 'education.' ~ loop.index0 %}
   <div class="entry"{{ sel(base) }}>
-    {{ dates(ed) }}
     <h3 class="entry-title"{{ path(base ~ '.title') }}>{{ ed.title }}</h3>
-    {% if ed.organisation %}<div class="entry-org"{{ path(base ~ '.organisation') }}>{{ ed.organisation }}</div>{% endif %}
+    <div class="entry-org-line">{% if ed.organisation %}<span class="entry-org"{{ path(base ~ '.organisation') }}>{{ ed.organisation }}</span>{% endif %}{{ dates_inline(ed) }}</div>
     {{ location(base, ed) }}
     <div class="entry-body">
-      {% if ed.field %}<p class="kv"><span class="label">Field(s) of study:</span> <span{{ path(base ~ '.field') }}>{{ ed.field }}</span></p>{% endif %}
-      {% if ed.final_grade %}<p class="kv"><span class="label">Final grade:</span> <span{{ path(base ~ '.final_grade') }}>{{ ed.final_grade }}</span></p>{% endif %}
-      {% if ed.eqf_level %}<p class="kv"><span class="label">Level in EQF:</span> EQF level {{ ed.eqf_level }}</p>{% endif %}
-      {% if ed.thesis %}<p class="kv"><span class="label">Thesis:</span> <span{{ path(base ~ '.thesis') }}>{{ ed.thesis }}</span></p>{% endif %}
-      {% if ed.description %}<p{{ path(base ~ '.description', true) }}>{{ ed.description }}</p>{% endif %}
+      {% if ed.field %}<p class="kv">{{ lbl("field", "Field(s) of study") }} <span{{ path(base ~ '.field') }}>{{ ed.field }}</span></p>{% endif %}
+      {% if ed.final_grade %}<p class="kv">{{ lbl("final_grade", "Final grade") }} <span{{ path(base ~ '.final_grade') }}>{{ ed.final_grade }}</span></p>{% endif %}
+      {% if ed.eqf_level %}<p class="kv">{{ lbl("eqf", "Level in EQF") }} EQF level {{ ed.eqf_level }}</p>{% endif %}
+      {% if ed.thesis %}<p class="kv">{{ lbl("thesis", "Thesis") }} <span{{ path(base ~ '.thesis') }}>{{ ed.thesis }}</span></p>{% endif %}
+      {% if ed.description %}<p{{ path(base ~ '.description', true) }}{{ align(base ~ '.description') }}>{{ ed.description | rich }}</p>{% endif %}
     </div>
   </div>
   {% else %}{{ empty_hint('No education yet. Use “Add” in the Content panel.') }}
@@ -141,13 +187,24 @@
 {%- elif key == 'languages' and (cv.languages or editable) %}
 {%- set langs = cv.languages or {} %}
 <div class="section"{{ sel('languages') }}>
-  <h2 class="section-title">{{ labels.languages }}</h2>
+  {{ title('languages', labels.languages) }}
   {% if langs.mother_tongues %}
-  <p class="mother-tongue"><span class="label">Mother tongue(s):</span> {{ langs.mother_tongues | map(attribute='name') | join(', ') }}</p>
+  <p class="mother-tongue">{{ lbl("mother", "Mother tongue(s)") }} {{ langs.mother_tongues | map(attribute='name') | join(', ') }}</p>
   {% endif %}
   {% if langs.other %}
   <div class="other-languages">
-  <p class="mother-tongue"><span class="label">Other language(s):</span></p>
+  <p class="mother-tongue">{{ lbl("other_lang", "Other language(s)") }}</p>
+  {% if design.languages_layout == 'list' %}
+  <ul class="lang-list">
+    {% for l in langs.other %}
+    <li>
+      <div class="lang-name">{{ l.name }}</div>
+      <div class="lang-row">{% for k, lab in (('listening','Listening'), ('reading','Reading'), ('writing','Writing')) %}{% if l[k] %}<span class="lang-skill"><span class="lang-label">{{ lab }}</span> <span class="lang-level">{{ l[k] }}</span></span>{% endif %}{% endfor %}</div>
+      <div class="lang-row">{% for k, lab in (('spoken_production','Spoken production'), ('spoken_interaction','Spoken interaction')) %}{% if l[k] %}<span class="lang-skill"><span class="lang-label">{{ lab }}</span> <span class="lang-level">{{ l[k] }}</span></span>{% endif %}{% endfor %}</div>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
   <table class="lang-table">
     <colgroup><col class="lang-col">{% for _ in range(5) %}<col class="level-col">{% endfor %}</colgroup>
     <thead>
@@ -165,46 +222,133 @@
       {% endfor %}
     </tbody>
   </table>
+  {% endif %}
   <div class="levels-legend">Levels: A1 and A2: Basic user; B1 and B2: Independent user; C1 and C2: Proficient user</div>
   </div>
   {% endif %}
   {% if not langs.mother_tongues and not langs.other %}{{ empty_hint('Select this section to add languages.') }}{% endif %}
 </div>
 
-{%- elif key == 'digital_skills' and (cv.digital_skills or editable) %}
+{%- elif key == 'digital_skills' and cv.digital_skills %}
 <div class="section"{{ sel('digital_skills') }}>
-  <h2 class="section-title">{{ labels.digital_skills }}</h2>
-  {% if cv.digital_skills %}
+  {{ title('digital_skills', labels.digital_skills) }}
+  {# Skills may be a flat list, or groups: [{title, skills:[...]}, ...] #}
+  {% if cv.digital_skills is iterable and cv.digital_skills is not string and cv.digital_skills|length and cv.digital_skills[0] is mapping %}
+    {% for group in cv.digital_skills %}
+    <div class="skills-group">
+      {% if group.title %}<h3 class="skills-group-title"{{ path('digital_skills.' ~ loop.index0 ~ '.title') }}>{{ group.title }}</h3>{% endif %}
+      <p class="skills-list">{% for s in group["items"] or group.skills or [] %}<span class="skill">{{ s }}</span>{% endfor %}</p>
+    </div>
+    {% endfor %}
+  {% else %}
   <p class="skills-list">{% for s in cv.digital_skills %}<span class="skill"{{ path('digital_skills.' ~ loop.index0) }}>{{ s }}</span>{% endfor %}</p>
-  {% else %}{{ empty_hint('Select this section to add skills.') }}{% endif %}
+  {% endif %}
+</div>
+{%- elif key == 'driving_licence' and cv.driving_licence %}
+<div class="section"{{ sel('driving_licence') }}>
+  {{ title('driving_licence', labels.driving_licence) }}
+  {% if cv.driving_licence %}<p>{{ lbl("driving", "Driving licence") }} {{ cv.driving_licence | join(', ') }}</p>
+  {% endif %}
 </div>
 
-{%- elif key == 'driving_licence' and (cv.driving_licence or editable) %}
-<div class="section"{{ sel('driving_licence') }}>
-  <h2 class="section-title">{{ labels.driving_licence }}</h2>
-  {% if cv.driving_licence %}<p><span class="label">Driving licence:</span> {{ cv.driving_licence | join(', ') }}</p>
-  {% else %}{{ empty_hint('Select this section to add licence categories.') }}{% endif %}
+{#- ---- typed optional sections --------------------------------------------
+     Nine of them share one entry shape (title, dates, location, description,
+     link), so one branch renders them all; publications and recommendations
+     carry their own fields and get their own. Each is a real CV key now, not
+     a {heading, text} pair, so dates and links reach the PDF and the XML. -#}
+{%- elif key in generic_sections and cv[key] %}
+<div class="section"{{ sel(key) }}>
+  {{ title(key, labels[key]) }}
+  {% for item in cv[key] or [] %}{% set base = key ~ '.' ~ loop.index0 %}
+  <div class="entry"{{ sel(base) }}>
+    {% if item.title %}<h3 class="entry-title"{{ path(base ~ '.title') }}>{{ item.title }}</h3>{% endif %}
+    {% if item.organisation %}<div class="entry-org-line"><span class="entry-org"{{ path(base ~ '.organisation') }}>{{ item.organisation }}</span></div>{% endif %}
+    {% if item.start or item.end %}{{ dates(item) }}{% endif %}
+    {% if item.date %}<div class="entry-date"{{ path(base ~ '.date') }}>[ {{ item.date | fmt_date }} ]</div>{% endif %}
+    {% if item.location %}<p class="kv"><span{{ path(base ~ '.location') }}>{{ item.location }}</span></p>{% endif %}
+    <div class="entry-body">
+      {% if item.description is string and item.description %}
+        <p{{ path(base ~ '.description', true) }}{{ align(base ~ '.description') }}>{{ item.description | rich }}</p>
+      {% elif item.description %}
+        <ul>{% for line in item.description %}<li{{ path(base ~ '.description.' ~ loop.index0, false, true) }}>{{ line | rich }}</li>{% endfor %}</ul>
+      {% endif %}
+      {% if item.mode %}<p class="kv">{{ lbl("mode", "Mode of learning") }} <span{{ path(base ~ '.mode') }}>{{ item.mode }}</span></p>{% endif %}
+      {% if item.url %}<p class="kv">{{ lbl("link", "Link") }} {% if editable %}<span{{ path(base ~ '.url') }}>{{ item.url }}</span>{% else %}<a href="{{ item.url if '://' in item.url else 'https://' ~ item.url }}">{{ item.url }}</a>{% endif %}</p>{% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+{%- elif key == 'publications' and cv.publications %}
+<div class="section"{{ sel('publications') }}>
+  {{ title('publications', labels.publications) }}
+  {% for item in cv.publications or [] %}{% set base = 'publications.' ~ loop.index0 %}
+  <div class="entry"{{ sel(base) }}>
+    {% if item.title %}<h3 class="entry-title"{{ path(base ~ '.title') }}>{{ item.title }}</h3>{% endif %}
+    {% if item.year %}<div class="entry-date"{{ path(base ~ '.year') }}>[ {{ item.year }} ]</div>{% endif %}
+    <div class="entry-body">
+      {% if item.reference %}<p class="kv">{{ lbl("reference", "Reference") }} <span{{ path(base ~ '.reference') }}>{{ item.reference }}</span></p>{% endif %}
+      {% if item.description is string and item.description %}<p{{ path(base ~ '.description', true) }}>{{ item.description | rich }}</p>
+      {% elif item.description %}<ul>{% for line in item.description %}<li>{{ line | rich }}</li>{% endfor %}</ul>{% endif %}
+      {%- set meta = [] %}
+      {%- if item.authors %}{% set _ = meta.append(('Authors', item.authors, base ~ '.authors')) %}{% endif %}
+      {%- if item.journal %}{% set _ = meta.append(('Journal Name', item.journal, base ~ '.journal')) %}{% endif %}
+      {%- if item.volume %}{% set _ = meta.append(('Volume, Issue and Pages', item.volume, base ~ '.volume')) %}{% endif %}
+      {%- if item.publisher %}{% set _ = meta.append(('Publisher', item.publisher, base ~ '.publisher')) %}{% endif %}
+      {%- if item.doi %}{% set _ = meta.append(('DOI', item.doi, base ~ '.doi')) %}{% endif %}
+      {% if meta %}<p class="kv">{% for label, value, pth in meta %}<span class="label-semi">{{ label }}:</span> <span{{ path(pth) }}>{{ value }}</span>{% if not loop.last %}<span class="sep">|</span>{% endif %}{% endfor %}</p>{% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+{%- elif key == 'recommendations' and cv.recommendations %}
+<div class="section"{{ sel('recommendations') }}>
+  {{ title('recommendations', labels.recommendations) }}
+  {% for item in cv.recommendations or [] %}{% set base = 'recommendations.' ~ loop.index0 %}
+  <div class="entry"{{ sel(base) }}>
+    <h3 class="entry-title"><span class="label-semi">Name:</span> <span{{ path(base ~ '.name') }}>{{ item.name }}</span>{% if item.role %}<span class="sep">|</span><span class="entry-org"{{ path(base ~ '.role') }}>{{ item.role }}</span>{% endif %}</h3>
+    <div class="entry-body">
+      {% if item.description is string and item.description %}<p{{ path(base ~ '.description', true) }}>{{ item.description | rich }}</p>
+      {% elif item.description %}<ul>{% for line in item.description %}<li>{{ line | rich }}</li>{% endfor %}</ul>{% endif %}
+      {%- set contact = [] %}
+      {%- if item.email %}{% set _ = contact.append(('Email', item.email, base ~ '.email')) %}{% endif %}
+      {%- if item.phone %}{% set _ = contact.append(('Phone number', ((('(+' ~ item.phone_dialing ~ ') ') if item.phone_dialing else '') ~ item.phone), base ~ '.phone')) %}{% endif %}
+      {% if contact %}<p class="kv">{% for label, value, pth in contact %}<span class="label-semi">{{ label }}:</span> <span{{ path(pth) }}>{{ value }}</span>{% if not loop.last %}<span class="sep">|</span>{% endif %}{% endfor %}</p>{% endif %}
+    </div>
+  </div>
+  {% endfor %}
 </div>
 
 {%- elif key.startswith('custom:') %}
 {%- for sec in cv.additional_sections or [] if 'custom:' ~ sec.id == key %}
 {%- set si = (cv.additional_sections or []).index(sec) %}
-{%- if sec['items'] or editable %}
+{# an optional section with nothing in it is left out of the page entirely,
+   in the editor as well as the PDF; it stays listed in the Content panel #}
+{%- if sec['items'] %}
 <div class="section">
   <h2 class="section-title"{{ sel('custom:' ~ sec.id) }}><span{{ path('additional_sections.' ~ si ~ '.title') }}>{{ sec.title }}</span></h2>
   {% for item in sec['items'] or [] %}{% set base = 'additional_sections.' ~ si ~ '.items.' ~ loop.index0 %}
   <div class="entry"{{ sel(base) }}>
-    {% if item.heading %}<h3 class="entry-title"{{ path(base ~ '.heading') }}>{{ item.heading }}</h3>{% endif %}
-    <div class="entry-body"><p{{ path(base ~ '.text', true) }}>{{ item.text }}</p></div>
+    {% if item.heading %}<h3 class="entry-title item-title"{{ path(base ~ '.heading') }}>{{ item.heading }}</h3>{% endif %}
+    <div class="entry-body"><p{{ path(base ~ '.text', true) }}{{ align(base ~ '.text') }}>{{ item.text | rich }}</p></div>
   </div>
-  {% else %}{{ empty_hint('No items yet. Use “Add” in the Content panel.') }}
   {% endfor %}
 </div>
 {%- endif %}
 {%- endfor %}
+
 {%- endif %}
 
 {%- endfor %}
+{%- if cv.closing_statement and cv.closing_statement.text %}
+<div class="closing">
+  <p class="closing-text"{{ path('closing_statement.text', true) }}>{{ cv.closing_statement.text | rich }}</p>
+  {%- if cv.closing_statement.place or cv.closing_statement.date %}
+  <p class="closing-sign"><span{{ path('closing_statement.place') }}>{{ cv.closing_statement.place }}</span>{% if cv.closing_statement.place and cv.closing_statement.date %}, {% endif %}<span{{ path('closing_statement.date') }}>{{ cv.closing_statement.date | fmt_date }}</span></p>
+  {%- endif %}
+</div>
+{%- endif %}
 
 </body>
 </html>

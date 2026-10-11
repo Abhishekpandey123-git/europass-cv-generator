@@ -85,6 +85,8 @@ button, input, select, textarea { font: inherit; color: inherit; }
   gap: 6px;
 }
 
+a.btn { color: inherit; text-decoration: none; }
+
 .btn:hover, .icon-btn:hover, .zoom-value:hover { border-color: #b8c1cc; }
 
 .btn-primary { background: var(--ink); border-color: var(--ink); color: #fff; }
@@ -298,6 +300,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .canvas {
   overflow: auto;
   padding: 32px 32px 64px;
+  background: var(--desk);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -306,8 +309,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .page-wrap {
   flex: 0 0 auto;
   transform-origin: top center;
-  box-shadow: 0 1px 2px rgba(29, 42, 58, .12), 0 12px 32px rgba(29, 42, 58, .14);
-  background: #fff;
+  background: transparent;   /* the sheets inside carry their own shadow */
 }
 
 .page-wrap iframe {
@@ -315,7 +317,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
   width: 210mm;
   height: 297mm;
   border: 0;
-  background: #fff;
+  background: transparent;   /* the sheets inside carry their own background */
 }
 
 .canvas-note { color: var(--ink-soft); font-size: 12px; margin: 16px 0 0; text-align: center; }
@@ -431,4 +433,144 @@ button, input, select, textarea { font: inherit; color: inherit; }
   .panel-left { display: none; }
   .canvas { padding: 16px 8px 48px; }
   .toolbar .divider, #zoomIn, #zoomOut { display: none; }
+}
+
+/* ------------------------------------------------ server-backed editor --- */
+
+.back-link {
+  width: 32px; height: 32px; border-radius: var(--radius);
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--ink); flex: 0 0 auto;
+}
+.back-link:hover { background: #eef1f5; }
+.back-link svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+.status-select {
+  height: 28px; border: 1px solid var(--line); border-radius: 14px; padding: 0 8px;
+  background: var(--field); font-size: 12.5px; font-weight: 600; flex: 0 0 auto;
+}
+.status-select[data-v="new"] { background: #eaf1fb; border-color: #bcd2ee; }
+.status-select[data-v="in_review"] { background: var(--marigold-soft); border-color: #eccb96; }
+.status-select[data-v="ready"] { background: #e6f3ec; border-color: #a9d3bb; }
+
+.save-state.is-error { color: var(--danger); font-weight: 600; }
+
+.checks {
+  border: 1px solid #eccb96; background: var(--marigold-soft); border-radius: var(--radius);
+  padding: 10px 12px; margin-bottom: 14px; font-size: 12.5px;
+}
+.checks strong { display: block; margin-bottom: 6px; font-size: 13px; }
+.checks ul { margin: 0 0 8px; padding-left: 16px; }
+.checks li { margin-bottom: 4px; line-height: 1.4; }
+
+
+/* ---------------------------------------------- formatting toolbar --- */
+
+.format-bar {
+  position: fixed;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  background: var(--ink);
+  border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(29, 42, 58, .28);
+}
+
+.format-bar button {
+  min-width: 30px;
+  height: 28px;
+  padding: 0 7px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: #fff;
+  font-size: 13px;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.format-bar button:hover:not(:disabled) { background: rgba(255, 255, 255, .16); }
+.format-bar button.is-on { background: var(--marigold); color: #241a07; }
+.format-bar button:disabled { opacity: .35; cursor: default; }
+
+.fb-sep { width: 1px; height: 18px; background: rgba(255, 255, 255, .25); margin: 0 3px; }
+
+/* ---------------------------------------------- photo crop dialog ---- */
+
+.photo-dialog {
+  border: 0;
+  border-radius: 14px;
+  padding: 24px 26px;
+  width: min(420px, 94vw);
+  box-shadow: 0 24px 60px rgba(20, 30, 46, .35);
+}
+
+.photo-dialog::backdrop { background: rgba(20, 30, 46, .55); }
+.photo-dialog h2 { margin: 0 0 6px; font-size: 18px; color: var(--ink); }
+.photo-hint { margin: 0 0 16px; color: var(--ink-soft); font-size: 13px; line-height: 1.5; }
+
+.photo-stage {
+  position: relative;
+  margin: 0 auto 16px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #eef1f5;
+  touch-action: none;
+}
+
+.photo-stage canvas { display: block; cursor: grab; }
+.photo-stage canvas:active { cursor: grabbing; }
+
+/* the round window showing what lands on the CV */
+.photo-mask {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  box-shadow: 0 0 0 9999px rgba(255, 255, 255, .72);
+  border-radius: 50%;
+  border: 2px solid rgba(12, 86, 165, .9);
+}
+
+.photo-zoom { margin-bottom: 18px; }
+
+.photo-actions { display: flex; gap: 8px; justify-content: flex-end; }
+
+.photo-rotate {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: -6px 0 18px;
+  flex-wrap: wrap;
+}
+
+.photo-rotate > span {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  margin-right: 2px;
+}
+
+/* ---- repeatable contact rows (extra emails, social media...) --------- */
+
+.repeat-group { margin-bottom: 12px; }
+
+.repeat-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.repeat-row input,
+.repeat-row select { flex: 1 1 auto; min-width: 0; }
+.repeat-row select { flex: 0 0 38%; }
+.repeat-row .btn { flex: 0 0 auto; padding: 0 9px; }
+
+.subhead-small {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  margin: 12px 0 6px;
 }

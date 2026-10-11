@@ -21,15 +21,19 @@ import mimetypes
 import sys
 from pathlib import Path
 
+import re
+
 from jinja2 import Environment, FileSystemLoader, select_autoescape
+from markupsafe import Markup, escape
 from pypdf import PdfReader, PdfWriter
 from weasyprint import HTML
 
-from cv_design import SECTION_LABELS, design_css, ensure_ids, normalize
+from cv_design import GENERIC_SECTIONS, SECTION_LABELS, design_css, ensure_ids, normalize, page_geometry
 from europass_xml import build_xml
 
 BASE = Path(__file__).resolve().parent
 TEMPLATES = BASE / "templates"
+EUROPASS_LOGO = BASE / "assets" / "europass-logo.png"
 XML_ATTACHMENT_NAME = "attachment.xml"
 
 
@@ -80,25 +84,69 @@ def validate(cv: dict, source: str) -> list[str]:
 
 # -------------------------------------------------------------- rendering ---
 
+# Text the editor may format: only these tags survive, so pasted or edited
+# content can never inject anything into the page or the PDF.
+RICH_TAGS = ("b", "strong", "i", "em", "u", "s", "br")
+_TAG = re.compile(r"</?([a-zA-Z0-9]+)[^>]*>")
+
+
+def clean_rich(value: str) -> str:
+    """Keep simple formatting (bold, italic, underline, line breaks); drop the rest."""
+    text = str(value or "")
+    if "<" not in text:
+        return str(escape(text)).replace("\n", "<br>")
+    keep = []
+
+    def repl(m):
+        tag = m.group(1).lower()
+        if tag in RICH_TAGS:
+            closing = m.group(0).startswith("</")
+            keep.append(tag)
+            return f"</{tag}>" if closing else ("<br>" if tag == "br" else f"<{tag}>")
+        return ""
+
+    text = _TAG.sub(repl, text)
+    # escape everything that is not one of the tags we just normalised
+    parts = re.split(r"(<[^>]+>)", text)
+    return "".join(p if p.startswith("<") and p.endswith(">") else escape(p) for p in parts)
+
+
+def rich(value) -> Markup:
+    return Markup(clean_rich(value))
+
+
 env = Environment(loader=FileSystemLoader(TEMPLATES), autoescape=select_autoescape(["html"]))
 env.filters["fmt_date"] = fmt_date
+env.filters["rich"] = rich
 
 
 def render_html(cv: dict, base_dir: Path = BASE, logo: str | None = None, editable: bool = False) -> str:
     """Render the CV. editable=True adds the hooks used by the web editor."""
     ensure_ids(cv)
     design, sections = normalize(cv)
+    labels = dict(SECTION_LABELS)
+    labels.update({k: v for k, v in design["section_titles"].items() if k in labels})
     template = env.get_template("europass_cv.html")
     return template.render(
         cv=cv,
         p=cv.get("personal", {}),
-        css=(TEMPLATES / "europass_cv.css").read_text(encoding="utf-8"),
+        design=design,
+        css=((TEMPLATES / "europass_cv.css").read_text(encoding="utf-8")
+             + "\n" + (TEMPLATES / "europass_templates.css").read_text(encoding="utf-8")),
+        template=design["template"],
         design_css=design_css(design),
+        page=page_geometry(design),
         sections=sections,
-        labels=SECTION_LABELS,
+        labels=labels,
+        generic_sections=GENERIC_SECTIONS,
         editable=editable,
         photo_src=to_data_uri(cv.get("personal", {}).get("photo"), base_dir),
-        logo_src=to_data_uri(logo, BASE) if logo else None,
+        # The official exports put the Europass logo on the first page, so it is
+        # on by default; design.frame is the switch. A logo passed explicitly
+        # (the --logo flag) still wins, for a differently branded CV.
+        logo_src=(to_data_uri(logo, BASE) if logo
+                  else to_data_uri(str(EUROPASS_LOGO), BASE) if design.get("frame") and EUROPASS_LOGO.exists()
+                  else None),
     )
 
 
@@ -121,7 +169,7 @@ def embed_xml(pdf_bytes: bytes, xml_bytes: bytes, cv: dict) -> bytes:
     writer.add_attachment(XML_ATTACHMENT_NAME, xml_bytes)
     p = cv.get("personal", {})
     writer.add_metadata({
-        "/Title": f"{p.get('first_name', '')} {p.get('last_name', '')} - Europass CV".strip(),
+        "/Title": "Europass",          # the official export uses this exact title
         "/Author": f"{p.get('first_name', '')} {p.get('last_name', '')}".strip(),
         "/Subject": "Curriculum Vitae",
         "/Creator": "europass-cv-generator",

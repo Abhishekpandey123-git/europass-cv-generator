@@ -1,0 +1,265 @@
+/* ==========================================================================
+   The four official Europass templates.
+
+   Every number here was measured from a genuine Europass export - see
+   references/template-specs.md for the source file and method behind each
+   one. Selected by a template-N class on <body>.
+
+   One stylesheet, two renderers: the browser preview in the editor and
+   WeasyPrint load this same file, so the preview cannot drift from the PDF.
+   ========================================================================== */
+
+/* Shared type scale.
+   Derived from box height rather than ink height: the body text box measures
+   13.6 pt and the body font is 9.7 pt, giving box = 1.402 x size, and that
+   ratio converts every other box on the page. Measuring ink instead
+   under-reads, because a word's tallest glyph is rarely the font's full
+   ascent - it put the name at 14.3 pt when it is really 15.5 pt. */
+body[class*="template-"] {
+  --size-body: 9.7pt;       /* box 13.6 pt */
+  --size-section: 10.6pt;   /* box 14.9 pt */
+  --size-name: 15.5pt;      /* box 21.7 pt */
+  --size-small: 8pt;        /* box 11.2 pt */
+  --frame-blue: #82acd9;    /* exact RGB(130,172,217) */
+  --band-grey: #f5f5f5;
+}
+
+/* WeasyPrint stretches a grid item to fill its column even when the item has
+   a definite width, contrary to CSS Grid where stretch applies only to auto
+   widths. Confirmed with a two-case probe: without this the photo renders at
+   the column width instead of its own. Browsers are unaffected either way. */
+body[class*="template-"] .photo { justify-self: start; align-self: start; }
+
+/* --------------------------------------------------------------------------
+   Template 1 - full-width grey header band
+   Reference: template_01__1_.pdf
+   -------------------------------------------------------------------------- */
+body.template-1 .header {
+  position: relative;
+  box-sizing: border-box;
+  background: var(--band-grey);
+  height: 76.88mm;                       /* band runs 0 -> 76.88mm */
+  margin: calc(-1 * var(--page-top, 10mm)) calc(-1 * var(--page-margin)) 6mm;
+  padding: 16.43mm 5.25mm 6mm 5.08mm;    /* photo top 16.43mm, left 5.08mm */
+  display: grid;
+  grid-template-columns: 35.7mm minmax(0, 1fr);   /* 29.5mm photo + 6.2mm gutter */
+  column-gap: 0;
+}
+body.template-1 .photo { width: 29.5mm; height: 29.5mm; border-radius: 50%; object-fit: cover; }
+body.template-1 .section-title { text-transform: uppercase; }
+
+/* --------------------------------------------------------------------------
+   Template 2 - grey left column on page 1, narrow strip after
+   Reference: template.pdf, and the official page backgrounds
+
+   The sidebar is 67.39mm wide on page 1, holding the photo, the name, the
+   personal details and the contact list; from page 2 it narrows to 10.84mm
+   and the text column moves left to 13mm. The official export does exactly
+   this, and so do the background images.
+
+   The indent is done with a float rather than a per-page margin. @page :first
+   could set the page-1 margin, but the editor's preview gives the whole CV
+   one padding, so it could not follow and the preview would disagree with the
+   PDF about where every continuation page's text begins - and so about where
+   the pages break. A float is laid out the same way by both engines: text
+   wraps beside it for its height (page 1) and runs full width after it.
+   -------------------------------------------------------------------------- */
+body.template-2 .sidebar-band {
+  /* The narrow strip, on every page. WeasyPrint repeats a fixed box per page
+     but positions it from the page AREA, so it is pulled back to the paper. */
+  position: fixed;
+  top: calc(-1 * var(--page-top, 10mm));
+  left: calc(-1 * var(--page-margin));
+  width: 10.84mm; height: 297mm;
+  background: var(--band-grey);
+}
+body.template-2 .sidebar-wide {
+  /* The wide column, page 1 only: absolute, so it is painted once where it
+     sits in the flow rather than repeated like the fixed strip above. */
+  position: absolute;
+  top: calc(-1 * var(--page-top, 10mm));
+  left: calc(-1 * var(--page-margin));
+  width: 67.39mm; height: 297mm;
+  background: var(--band-grey);
+  z-index: 0;
+}
+body.template-2 .header {
+  /* 70mm from the paper's edge: the 67.39mm column plus its 2.61mm gutter,
+     less the 13mm page margin the float already sits inside. */
+  float: left;
+  width: 70mm;                         /* paper 0 -> 70mm, where the text starts */
+  margin-left: calc(-1 * var(--page-margin));
+  /* Runs to the bottom margin, so it reserves the whole of page 1's left
+     column. Template 2's page top margin is 6.11mm, so 0.66mm of padding puts
+     the photo at the measured 6.77mm. */
+  height: calc(297mm - var(--page-top, 10mm) - var(--page-bottom, 12mm));
+  padding: 0.66mm 2.61mm 0 3.3mm;                       /* sidebar text starts 3.3mm in */
+  box-sizing: border-box;
+  position: relative;
+  z-index: 1;
+  display: block;                      /* photo, name and contacts stack */
+}
+body.template-2 .header .photo {
+  width: 34.04mm; height: 34.04mm; border-radius: 50%; object-fit: cover;
+  display: block; margin: 0 0 4mm 12.96mm;   /* measured: 16.26mm from the paper */
+}
+body.template-2 .header-main { padding: 0; }
+body.template-2 .name { text-align: center; font-size: 13pt; }
+body.template-2 .contact-line { margin-bottom: 2mm; }
+/* The main column starts lower than the sidebar: 17.61mm on the official
+   page 1, against the 6.11mm page top margin. */
+body.template-2 .header + .section { padding-top: 7.3mm; }   /* plus the 4mm section gap */
+body.template-2 .section-title { text-transform: uppercase; }
+/* Beside the float, a list's box keeps the full page width while its lines
+   wrap to the right of the sidebar, so outside markers are left behind in the
+   sidebar. Putting them inside keeps each bullet with its own text. */
+body.template-2 ul { list-style-position: inside; padding-left: 0; }
+
+/* --------------------------------------------------------------------------
+   Template 3 - blue bracket frame
+   Reference: real_cv_will_almost_all_feilds.pdf, Aarav, Bhavyansh Perugia
+
+   NOT two full-width bands: a 5.93mm bar across top and bottom plus
+   5.93 x 23.9mm arms at all four corners. At 10mm down the page only two
+   5.93mm runs exist, one at each edge; by 34mm there is no blue at all.
+
+   Six positioned bars rather than six background gradients: WeasyPrint
+   ignores a multi-value background-size and paints every gradient full-page.
+   -------------------------------------------------------------------------- */
+body.template-3 .frame {
+  position: fixed;
+  top: calc(-1 * var(--page-top, 10mm));
+  left: calc(-1 * var(--page-margin));
+  width: 210mm; height: 297mm;
+}
+body.template-3 .frame i { position: absolute; display: block; background: var(--frame-blue); }
+body.template-3 .frame .bar-top    { top: 0;    left: 0;  right: 0; height: 5.93mm; }
+body.template-3 .frame .bar-bottom { bottom: 0; left: 0;  right: 0; height: 5.93mm; }
+body.template-3 .frame .arm-tl     { top: 0;    left: 0;  width: 5.93mm; height: 23.9mm; }
+body.template-3 .frame .arm-tr     { top: 0;    right: 0; width: 5.93mm; height: 23.9mm; }
+body.template-3 .frame .arm-bl     { bottom: 0; left: 0;  width: 5.93mm; height: 23.9mm; }
+body.template-3 .frame .arm-br     { bottom: 0; right: 0; width: 5.93mm; height: 23.9mm; }
+
+body.template-3 .header {
+  position: relative;
+  display: grid;
+  grid-template-columns: 43.3mm minmax(0, 1fr);   /* text column at 52.5mm */
+  min-height: 60mm;
+  padding-top: 12.7mm;                            /* photo top 22.86mm */
+}
+body.template-3 .photo { width: 35.4mm; height: 35.4mm; border-radius: 50%; object-fit: cover; }
+body.template-3 .section-title {
+  text-transform: uppercase;
+  margin: 0 0 5.1mm;                 /* rule -> body text */
+  padding: 0 0 2.2mm;                /* heading -> rule */
+  border-bottom: 0.3mm solid #999;
+}
+body.template-3 .section { margin-bottom: 7mm; }
+
+/* --------------------------------------------------------------------------
+   Template 4 - right-aligned section label column
+   Reference: template_3.pdf
+   -------------------------------------------------------------------------- */
+body.template-4 .section {
+  display: grid;
+  grid-template-columns: 46.2mm minmax(0, 1fr);   /* labels end at 53.2mm */
+  column-gap: 4.4mm;                              /* body starts at 57.6mm */
+  margin-bottom: 6mm;
+}
+/* Education and work experience wrap their heading in an extra div for the
+   editor's selection hook, so a rule targeting .section-title alone puts
+   those two labels in the content column while every other section's label
+   sits in the label column. The heading - wrapped or not - is always the
+   section's first child, so key off that instead. */
+body.template-4 .section > :first-child { grid-column: 1; }
+body.template-4 .section > :not(:first-child) { grid-column: 2; }
+body.template-4 .section > :first-child,
+body.template-4 .section-title {
+  text-align: right;
+  text-transform: uppercase;
+  margin: 0; padding: 0; border: 0;
+}
+body.template-4 .header {
+  position: relative;
+  display: grid;
+  grid-template-columns: 50.6mm minmax(0, 1fr);   /* header text at 57.6mm */
+  min-height: 50mm;
+}
+body.template-4 .photo { width: 35mm; height: 35mm; border-radius: 50%; object-fit: cover; }
+
+/* --------------------------------------------------------------------------
+   The Europass logo, first page only, as <Logo>FirstPage</Logo> in the
+   official XML. It is 55.37 x 10.5mm in all four exports; only its offset
+   from the paper's top-right corner changes.
+
+   Templates 1 and 2 pull .header out to the paper edges with negative
+   margins, so an absolute child is already measured from the corner.
+   Templates 3 and 4 leave .header inside the content area, so their offsets
+   are the measured value minus the page margin - negative where the logo
+   sits outside the text area.
+   -------------------------------------------------------------------------- */
+body[class*="template-"] { position: relative; }
+body[class*="template-"] .header { position: relative; }
+/* Zero height, so it takes no space; position:relative makes it the logo's
+   containing block and stops the header's negative margin collapsing. */
+body[class*="template-"] .logo-layer { position: relative; height: 0; }
+body[class*="template-"] .logo {
+  position: absolute;
+  width: 55.37mm;
+  height: auto;
+  z-index: 2;
+}
+/* The offsets below are the measured distances from the paper's corner. The
+   logo is positioned against the body, whose box starts inside the page
+   margins, so each is reduced by the margin - written as calc() so the
+   official number stays visible and a margin change cannot silently move
+   the logo. */
+body.template-1 .logo { top: calc(4.91mm  - var(--page-top)); right: calc(5.25mm - var(--page-margin-right)); }
+body.template-2 .logo { top: calc(6.94mm  - var(--page-top)); right: calc(6.10mm - var(--page-margin-right)); }
+body.template-3 .logo { top: calc(10.33mm - var(--page-top)); right: calc(9.65mm - var(--page-margin-right)); }
+body.template-4 .logo { top: calc(4.91mm  - var(--page-top)); right: calc(5.25mm - var(--page-margin-right)); }
+
+/* --------------------------------------------------------------------------
+   Screen vs print.
+
+   WeasyPrint repeats a position:fixed box on every page, which is how the
+   frame and the sidebar reach every sheet in the PDF. A browser resolves
+   position:fixed against the viewport instead, so in the editor the same
+   element sat still while the CV scrolled underneath it and the blue bars
+   cut straight through the middle of the content.
+
+   On screen the editor already draws one .page-frame sheet per page, so the
+   frame is painted there instead - gradients are fine in a browser, which
+   honours a multi-value background-size (WeasyPrint does not).
+   -------------------------------------------------------------------------- */
+@media screen {
+  body.template-3 .frame,
+  body.template-2 .sidebar-band,
+  body.template-2 .sidebar-wide { display: none; }
+
+  body.template-3 .page-frame {
+    background-image:
+      linear-gradient(var(--frame-blue), var(--frame-blue)),
+      linear-gradient(var(--frame-blue), var(--frame-blue)),
+      linear-gradient(var(--frame-blue), var(--frame-blue)),
+      linear-gradient(var(--frame-blue), var(--frame-blue)),
+      linear-gradient(var(--frame-blue), var(--frame-blue)),
+      linear-gradient(var(--frame-blue), var(--frame-blue));
+    background-repeat: no-repeat;
+    background-position:
+      left top, left bottom,
+      left top, right top, left bottom, right bottom;
+    background-size:
+      100% 5.93mm, 100% 5.93mm,
+      5.93mm 23.9mm, 5.93mm 23.9mm, 5.93mm 23.9mm, 5.93mm 23.9mm;
+  }
+
+  /* Sheet 1 carries the wide column; later sheets the narrow strip. */
+  body.template-2 .page-frame {
+    background-image: linear-gradient(var(--band-grey), var(--band-grey));
+    background-repeat: no-repeat;
+    background-position: left top;
+    background-size: 10.84mm 100%;
+  }
+  body.template-2 .page-frame.first { background-size: 67.39mm 100%; }
+}

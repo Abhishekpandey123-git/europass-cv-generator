@@ -1,0 +1,28 @@
+[Unit]
+Description=Europass CV service
+After=network.target
+
+[Service]
+Type=simple
+User=__APP_USER__
+Group=__APP_USER__
+WorkingDirectory=__APP_DIR__
+Environment=PYTHONUNBUFFERED=1
+# One worker: the CV store is SQLite, and PDF rendering is the slow part, not concurrency.
+ExecStart=__APP_DIR__/venv/bin/uvicorn app:app --host 127.0.0.1 --port 8000 --log-level warning --proxy-headers --forwarded-allow-ips=127.0.0.1
+Restart=always
+RestartSec=3
+
+# Hardening: the service may only write to its own data and output folders.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=__APP_DIR__/data __APP_DIR__/output
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+
+[Install]
+WantedBy=multi-user.target
